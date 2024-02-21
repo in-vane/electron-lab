@@ -1,0 +1,31 @@
+{
+  "name": "vue-project",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "python:build": "pyinstaller --onefile ./python/api.py --paths ./python --clean --distpath ./dist-python",
+    "electron:build": "npm run python:build && vite build && electron-builder --config electron-builder.config.json"
+  },
+  "main": "dist-electron/main.js",
+  "dependencies": {
+    "@lylajs/web": "^1.7.0",
+    "pinia": "^2.1.7",
+    "vue": "^3.4.15",
+    "vue-router": "^4.2.5"
+  },
+  "devDependencies": {
+    "@vicons/ionicons5": "^0.12.0",
+    "@vitejs/plugin-vue": "^5.0.3",
+    "electron": "^28.2.2",
+    "electron-builder": "^24.9.1",
+    "naive-ui": "^2.37.3",
+    "tree-kill": "^1.2.2",
+    "vfonts": "^0.0.3",
+    "vite": "^5.0.11",
+    "vite-plugin-electron": "^0.28.1"
+  }
+}

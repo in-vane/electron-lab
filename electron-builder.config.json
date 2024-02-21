@@ -1,0 +1,10 @@
+{
+  "productName": "Your Application Name",
+  "appId": "com.xxx.xxx",
+  "directories": {
+    "output": "build"
+  },
+  "files": ["./dist-electron", "./dist"],
+  "extraFiles": ["./dist-python"],
+  "extraResources": []
+}
