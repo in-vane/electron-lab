@@ -13,6 +13,7 @@ class Application(tornado.web.Application):
             (r'/', MainHandler),
             (r'/ce', MainHandler),
             (r'/explored', MainHandler),
+            (r'/size', MainHandler),
             (r"/api", ApiHandler),
         ]
         settings = {
@@ -44,9 +45,10 @@ class MainHandler(tornado.web.RequestHandler):
             image_base64 = tasks.compare_ce(file_list[0],file_list[1])
         elif self.request.path == '/explored':
             image_base64 = tasks.compare_explored(file_list[0],file_list[1])
+        elif self.request.path == '/size':
+            image_base64 = tasks.compare_size(file_list[0])
+        elif self.request.path == '/other':
             pass
-        # elif self.request.path == '/size':
-        #     pass
         custom_data = {"data": f"data:image/jpeg;base64,{image_base64}"}
         self.write(custom_data)
 

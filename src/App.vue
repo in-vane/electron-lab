@@ -40,6 +40,12 @@ const menuOptions = [
     key: 'go-to-explored',
     icon: renderIcon(WorkIcon),
   },
+  {
+    label: () =>
+      h(RouterLink, { to: { path: '/size' } }, { default: () => '尺寸对比' }),
+    key: 'go-to-size',
+    icon: renderIcon(WorkIcon),
+  },
 ];
 
 // const url = 'http://127.0.0.1:4242/';
