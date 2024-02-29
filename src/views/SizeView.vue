@@ -12,8 +12,7 @@ import {
   NSpace,
 } from 'naive-ui';
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
-import { lyla } from '@lylajs/web';
-import { URL } from '@/utils';
+import { lyla } from '@/request';
 
 const upload = ref(null);
 const fileList = ref([]);
@@ -33,7 +32,7 @@ const handleUpload = () => {
   }
   loading.value = true;
   lyla
-    .post(`${URL}/size`, { body: formData })
+    .post('/size', { body: formData })
     .then((res) => {
       console.log(res);
       response.value = res.json.data;
@@ -69,7 +68,7 @@ const handleUpload = () => {
             点击或者拖动文件到该区域来上传
           </n-text>
           <n-p depth="3" style="margin: 8px 0 0 0">
-            现在检查的是尺寸
+            检查贴纸上标注尺寸是否与实际尺寸不符
           </n-p>
         </n-upload-dragger>
       </n-upload>

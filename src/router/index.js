@@ -6,6 +6,10 @@ const router = createRouter({
   routes: [
     {
       path: '/',
+      redirect: '/home',
+    },
+    {
+      path: '/home',
       name: 'home',
       component: HomeView,
     },
@@ -23,6 +27,26 @@ const router = createRouter({
       path: '/size',
       name: 'size',
       component: () => import('../views/SizeView.vue'),
+    },
+    {
+      path: '/pageNumber',
+      name: 'pageNumber',
+      component: () => import('../views/PageView.vue'),
+    },
+    {
+      path: '/table',
+      name: 'table',
+      component: () => import('../views/TableView.vue'),
+    },
+    {
+      path: '/screw',
+      name: 'screw',
+      component: () => import('../views/ScrewView.vue'),
+    },
+    {
+      path: '/language',
+      name: 'language',
+      component: () => import('../views/LanguageView.vue'),
     },
     // {
     //   path: '/about',

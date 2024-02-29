@@ -1,3 +1,4 @@
+import json
 import asyncio
 import tornado
 import tornado.web
@@ -14,6 +15,10 @@ class Application(tornado.web.Application):
             (r'/ce', MainHandler),
             (r'/explored', MainHandler),
             (r'/size', MainHandler),
+            (r'/pageNumber', MainHandler),
+            (r'/table', MainHandler),
+            (r'/screw', MainHandler),
+            (r'/language', MainHandler),
             (r"/api", ApiHandler),
         ]
         settings = {
@@ -34,22 +39,39 @@ class MainHandler(tornado.web.RequestHandler):
         
     def post(self):
         print("===== post =====")
-        print(self.request.path)
+
         file_list_keys = self.request.files.keys()
         file_list = []
+        custom_data = {}
+
         for _, key in enumerate(file_list_keys):
-            print(key)
             _file = self.request.files[key][0]
             file_list.append(_file['body'])
+
         if self.request.path == '/ce':
             image_base64 = tasks.compare_ce(file_list[0],file_list[1])
+            custom_data = {"data": f"data:image/jpeg;base64,{image_base64}"}
         elif self.request.path == '/explored':
             image_base64 = tasks.compare_explored(file_list[0],file_list[1])
+            custom_data = {"data": f"data:image/jpeg;base64,{image_base64}"}
         elif self.request.path == '/size':
             image_base64 = tasks.compare_size(file_list[0])
+            custom_data = {"data": f"data:image/jpeg;base64,{image_base64}"}
+        elif self.request.path == '/pageNumber':
+            doc_base64, error_page = tasks.check_page(file_list[0])
+            custom_data = {"data": doc_base64, "error_page": error_page}
+        elif self.request.path == '/table':
+            doc_base64, error_page = tasks.compare_table(file_list[0])
+            custom_data = {"data": doc_base64, "error_page": error_page}
+        elif self.request.path == '/screw':
+            doc_base64 = tasks.check_screw(file_list[0])
+            custom_data = {"data": doc_base64}
+        elif self.request.path == '/language':
+            is_error, error_language = tasks.check_language(file_list[0])
+            custom_data = {"is_error": is_error, "error_language": error_language}
         elif self.request.path == '/other':
             pass
-        custom_data = {"data": f"data:image/jpeg;base64,{image_base64}"}
+ 
         self.write(custom_data)
 
 

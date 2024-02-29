@@ -1,6 +1,6 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'path';
-import { spawn, ChildProcess } from 'child_process';
+import { spawn } from 'child_process';
 
 const __dirname = path.resolve();
 
@@ -10,6 +10,7 @@ app.whenReady().then(() => {
     webPreferences: {
       webSecurity: false, // 避免跨域问题
       contextIsolation: true,
+      devTools: true,
     },
   });
 

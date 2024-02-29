@@ -9,3 +9,9 @@ import { NResult, NButton } from 'naive-ui';
     </template> -->
   </n-result>
 </template>
+
+<style scoped>
+.n-result {
+  margin-top: 80px;
+}
+</style>
