@@ -8,16 +8,18 @@ import {
   NText,
   NP,
   NImage,
+  NImageGroup,
   NSpin,
   NSpace,
+  NH3,
 } from 'naive-ui';
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
-import { handleDownload } from '@/utils';
+// import { handleDownload } from '@/utils';
 
 const upload = ref(null);
 const fileList = ref([]);
-const response = ref('');
+const response = ref([]);
 const loading = ref(false);
 
 const handleChange = (data) => {
@@ -35,7 +37,7 @@ const handleUpload = () => {
     .then((res) => {
       console.log(res);
       response.value = res.json.data;
-      handleDownload(response.value);
+      // handleDownload(response.value);
     })
     .catch((error) => {})
     .finally(() => {
@@ -46,6 +48,12 @@ const handleUpload = () => {
 
 <template>
   <n-space vertical>
+    <n-space justify="space-between">
+      <n-h3 prefix="bar">选择要检查的PDF文件</n-h3>
+      <n-button type="primary" :ghost="true" @click="handleUpload">
+        开始检查
+      </n-button>
+    </n-space>
     <n-spin :show="loading">
       <n-upload
         multiple
@@ -68,10 +76,25 @@ const handleUpload = () => {
           </n-p>
         </n-upload-dragger>
       </n-upload>
-      <n-button @click="handleUpload"> 开始检查 </n-button>
     </n-spin>
+    <n-h3 v-show="response.length" prefix="bar">检查结果</n-h3>
+    <n-image-group>
+      <n-space>
+        <n-image
+          v-for="(img, i) in response"
+          :key="i"
+          :src="img"
+          alt="image"
+          height="200px"
+        />
+      </n-space>
+    </n-image-group>
   </n-space>
 </template>
 
 <style scoped>
+.n-image {
+  border: solid 1px rgb(224, 224, 230);
+  border-radius: 3px;
+}
 </style>

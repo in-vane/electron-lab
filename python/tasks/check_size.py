@@ -58,12 +58,17 @@ def compare_size(file):
     RESOLUTION = 300
     image, width, height = pdf_to_image(file, page_number=0, resolution=RESOLUTION)
     largest_width, largest_height, x, y, w, h = find_largest_rectangle_opencv(image, resolution=RESOLUTION)
-    print(largest_width, largest_height)
+
+    is_error = False
+    msg = "尺寸一致"
     if abs(width - largest_width) > 1 or abs(height - largest_height) > 1:
-        print("error")
-        # 在图像上插入错误提示文字
-        error_msg = "Error: Detected rectangle size does not match the specified size."
-        cv2.putText(image, error_msg, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+        is_error = True
+        largest_width = int(largest_width)
+        largest_height = int(largest_height)
+        msg = f"尺寸不一致: 标注为({height} x {width}), 检测结果为({largest_height} x {largest_width})"
+    # 在图像上插入错误提示文字
+    t = f"Marked ({height} x {width}), Real ({largest_height} x {largest_width})"
+    cv2.putText(image, t, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (24, 31, 172), 2)
 
     # 保存带有错误提示的图像
     # cv2.imwrite("error_image.jpg", image)
@@ -76,4 +81,4 @@ def compare_size(file):
     _, image_buffer = cv2.imencode('.jpg', image)
     image_base64 = base64.b64encode(image_buffer).decode('utf-8')
 
-    return image_base64
+    return is_error, msg, image_base64

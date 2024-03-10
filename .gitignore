@@ -28,5 +28,6 @@ coverage
 dist-electron
 dist-python
 build
+**/__pycache__
 
 *.tsbuildinfo

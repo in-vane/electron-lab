@@ -21,7 +21,12 @@ const router = createRouter({
     {
       path: '/explored',
       name: 'explored',
-      component: () => import('../views/ExploredView.vue'),
+      component: () => import('../views/ExploreView.vue'),
+    },
+    {
+      path: '/contour',
+      name: 'contour',
+      component: () => import('../views/ContourView.vue'),
     },
     {
       path: '/size',
@@ -31,7 +36,7 @@ const router = createRouter({
     {
       path: '/pageNumber',
       name: 'pageNumber',
-      component: () => import('../views/PageView.vue'),
+      component: () => import('../views/PageNumberView.vue'),
     },
     {
       path: '/table',

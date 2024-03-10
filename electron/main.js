@@ -12,6 +12,8 @@ app.whenReady().then(() => {
       contextIsolation: true,
       devTools: true,
     },
+    height: 720,
+    width: 1280,
   });
 
   // You can use `process.env.VITE_DEV_SERVER_URL` when the vite command is called `serve`

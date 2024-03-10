@@ -10,6 +10,7 @@ import {
   NImage,
   NSpin,
   NSpace,
+  NH3,
 } from 'naive-ui';
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
@@ -17,6 +18,8 @@ import { lyla } from '@/request';
 const upload = ref(null);
 const fileList = ref([]);
 const response = ref('');
+const isError = ref(false);
+const msg = ref('');
 const loading = ref(false);
 
 const handleChange = (data) => {
@@ -36,6 +39,8 @@ const handleUpload = () => {
     .then((res) => {
       console.log(res);
       response.value = res.json.data;
+      isError.value = res.json.is_error;
+      msg.value = res.json.msg;
     })
     .catch((error) => {})
     .finally(() => {
@@ -50,6 +55,12 @@ const handleUpload = () => {
 
 <template>
   <n-space vertical>
+    <n-space justify="space-between">
+      <n-h3 prefix="bar">选择要检查尺寸的CE文件</n-h3>
+      <n-button type="primary" :ghost="true" @click="handleUpload">
+        开始检查
+      </n-button>
+    </n-space>
     <n-spin :show="loading">
       <n-upload
         multiple
@@ -68,15 +79,21 @@ const handleUpload = () => {
             点击或者拖动文件到该区域来上传
           </n-text>
           <n-p depth="3" style="margin: 8px 0 0 0">
-            检查贴纸上标注尺寸是否与实际尺寸不符
+            检查贴纸上标注尺寸是否与实际尺寸相符
           </n-p>
         </n-upload-dragger>
       </n-upload>
-      <n-button @click="handleUpload"> 开始对比 </n-button>
     </n-spin>
+    <n-h3 prefix="bar" :type="isError ? 'error' : 'success'">
+      {{ msg }}
+    </n-h3>
     <n-image v-show="response" :src="response" alt="image" width="100%" />
   </n-space>
 </template>
 
 <style scoped>
+.n-image {
+  border: solid 1px rgb(224, 224, 230);
+  border-radius: 3px;
+}
 </style>

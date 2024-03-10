@@ -1,14 +1,14 @@
 from io import BytesIO
+from PIL import Image
 import base64
 import fitz
 import re
 
 
-def annotate_page_number_issues(file, printed_page_numbers, physical_page_numbers):
-    doc = fitz.open(stream=BytesIO(file))
-
+def annotate_page_number_issues(doc, printed_page_numbers, physical_page_numbers):
     # 检查页码问题
     issues = check_page_number_issues(printed_page_numbers, physical_page_numbers)
+    error_pages_base64 = []
 
     # 在有问题的页面上添加注释
     for issue_page_num in issues:
@@ -18,20 +18,26 @@ def annotate_page_number_issues(file, printed_page_numbers, physical_page_number
         footer_rect = fitz.Rect(0, page.rect.height - 50, page.rect.width, page.rect.height)
 
         # 在页脚区域添加红色文本
-        if issue_page_num % 2 == 0:
-            page.insert_textbox(footer_rect, "Page error", color=fitz.utils.getColor("red"), fontsize=12,
-                                align=fitz.TEXT_ALIGN_LEFT)
-        else:
-            page.insert_textbox(footer_rect, "Page error", color=fitz.utils.getColor("red"), fontsize=12,
-                                align=fitz.TEXT_ALIGN_RIGHT)
+        align = fitz.TEXT_ALIGN_LEFT if issue_page_num % 2 == 0 else fitz.TEXT_ALIGN_RIGHT
+        page.insert_textbox(footer_rect, "Page error", color=fitz.utils.getColor("red"), fontsize=12, align=align)
+
+        # 将页面转换为图像
+        pix = page.get_pixmap(alpha=False)
+        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+
+        # 将图像转换为base64编码
+        buffer = BytesIO()
+        img.save(buffer, format="PNG")  # 可以选择PNG或者JPEG格式
+        img_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+        buffer.close()
+        error_pages_base64.append(f"data:image/jpeg;base64,{img_base64}")
 
     # 将文档转换成字节流
-    doc_bytes = doc.write()
-
+    # doc_bytes = doc.write()
     # 将字节流进行base64编码
-    doc_base64 = base64.b64encode(doc_bytes).decode('utf-8')
+    # doc_base64 = base64.b64encode(doc_bytes).decode('utf-8')
 
-    return doc_base64, issues
+    return error_pages_base64, issues
 
 
 def check_page_number_issues(printed_page_numbers, physical_page_numbers):
@@ -65,9 +71,6 @@ def extract_page_numbers(doc):
     printed_page_numbers = []  # 初始化打印页码列表
     total_pages = len(doc)  # 获取PDF的总页数
 
-    # 生成物理页码列表，从1开始到总页数
-    physical_page_numbers = list(range(1, total_pages + 1))
-
     # 假设我们想要扩大页脚区域的覆盖范围
     footer_height = 70  # 从页面底部向上100个单位，增加页脚区域的高度
 
@@ -95,18 +98,22 @@ def extract_page_numbers(doc):
     # 将打印页码列表中的元素转换为整数，对于None值保持不变
     printed_page_numbers = [int(item) if item is not None else None for item in printed_page_numbers]
 
-    return printed_page_numbers, physical_page_numbers
+    return printed_page_numbers
 
 
 # 示例用法
-def check_page(file):
+def check_page_number(file):
     doc = fitz.open(stream=BytesIO(file))
 
-    printed_page_numbers, physical_page_numbers = extract_page_numbers(doc)
-    print(printed_page_numbers)
-    print(physical_page_numbers)
-    doc_base64, issues = annotate_page_number_issues(file, printed_page_numbers, physical_page_numbers)
+    # 生成物理页码列表，从1开始到总页数
+    physical_page_numbers = list(range(1, len(doc) + 1))
+    # 获取文件中的页码表
+    printed_page_numbers = extract_page_numbers(doc)
+    # 对比两个页码表
+    issues = check_page_number_issues(printed_page_numbers, physical_page_numbers)
+    # 在错误的页码附近标注错误
+    error_pages_base64, issues = annotate_page_number_issues(doc, printed_page_numbers, physical_page_numbers)
 
     doc.close()
 
-    return doc_base64, issues
+    return error_pages_base64, issues

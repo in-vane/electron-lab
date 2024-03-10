@@ -8,6 +8,7 @@ from io import BytesIO
 import cv2
 import fitz
 import pandas as pd
+from PIL import Image
 from tabula import read_pdf
 from collections import defaultdict
 from ppocronnx.predict_system import TextSystem
@@ -18,36 +19,43 @@ IMAGE_PATH = os.path.join(CURRENT_PATH, "image")
 CSV_PATH = os.path.join(CURRENT_PATH, "selected_table.csv")
 
 
-def find_target_table_total():
-    # 使用Tabula读取PDF中的表格
-    df_list = read_pdf(PDF_PATH, pages='all', multiple_tables=True)
+def find_target_table(doc):
+    total_pages = len(doc)  # 获取PDF的总页数
+    
+    # 遍历每一页
+    for page_num in range(1, total_pages + 1):
+        # 使用tabula读取当前页的表格
+        df_list = read_pdf(PDF_PATH, pages=page_num, multiple_tables=True)
 
-    # 查找并提取符合特定格式的表格
-    for df in df_list:
-        # 检查表头和内容是否符合预期，您可以根据实际情况调整检查逻辑
-        if all(x in df.columns for x in ['A', 'B', 'C']) and 'x' in ''.join(df.iloc[:, 1].astype(str)):
-            # 这里可以进一步处理DataFrame，保存为CSV文件
-            df.to_csv(CSV_PATH, index=False)
+        for df in df_list:
+            # 检查表头和内容是否符合预期
+            if all(x in df.columns for x in ['A', 'B', 'C']) and 'x' in ''.join(df.iloc[:, 1].astype(str)):
+                df.to_csv(CSV_PATH, index=False) # 找到符合条件的表格，保存为CSV文件
+                return page_num
+
+
+# 处理每个单元格数据
+def clean_cell(cell):
+    if isinstance(cell, str):
+        # 移除"x"并保留数字
+        cell = re.sub(r'x(\d+)', r'\1', cell)
+        # 保留只包含一个大写字母或数字的单元格内容
+        if re.match(r'^[A-Z]$', cell) or re.match(r'^\d+$', cell):
+            return cell
+    return None
 
 
 # 获取大写英问字符和对应数字
 def manage_csv():
     # 尝试读取CSV文件，假设它位于可以访问的路径
     try:
-        df = pd.read_csv(CSV_PATH)
-
-        # 保留包含单个英文字符的行
-        df_letters = df[df.apply(lambda x: x.str.contains(r'^[A-Za-z]$', regex=True)).any(axis=1)]
-
-        # 保留包含乘号和数字组合的行，并去除乘号，只保留数字
-        df_numbers = df[df.apply(lambda x: x.str.contains('x\d+', regex=True)).any(axis=1)]
-        df_numbers = df_numbers.applymap(lambda x: re.sub(r'x(\d+)', r'\1', str(x)) if 'x' in str(x) else x)
-
-        # 保留这两行，组合为新的DataFrame
-        df_final = pd.concat([df_letters, df_numbers], ignore_index=True)
-
+        df = pd.read_csv(CSV_PATH, header=None)
+        # 应用清理函数到每个单元格
+        df = df.applymap(clean_cell)
+        # 删除全为空的列
+        df.dropna(axis=1, how='all', inplace=True)
         # 覆盖原来的CSV文件
-        df_final.to_csv(CSV_PATH, index=False)
+        df.to_csv(CSV_PATH, index=False, header=False)
     except Exception:
         pass
 
@@ -64,19 +72,30 @@ def read_csv_to_dict():
         characters = next(csv_reader)
         numbers = next(csv_reader)
 
+        # 清理 numbers 列表，确保只包含数字
+        cleaned_numbers = []
+        for item in numbers:
+            # 提取字符串中的数字部分
+            match = re.search(r'\d+', item)
+            if match:
+                cleaned_numbers.append(int(match.group(0)))
+            else:
+                cleaned_numbers.append(0)  # 如果没有找到数字，使用0作为默认值
+
+
         # 将字符和数字对应存储到字典中
-        result_dict = dict(zip(characters, map(int, numbers)))
+        result_dict = dict(zip(characters, cleaned_numbers))
 
     return result_dict
 
 
 # 获取总的螺丝表
-def get_total_screw():
-    find_target_table_total()
+def get_total_screw(doc):
+    page_num = find_target_table(doc)
     manage_csv()
     result_dict = read_csv_to_dict()
 
-    return result_dict
+    return result_dict, page_num
 
 
 # 提取步骤图里的螺丝表
@@ -181,7 +200,7 @@ def check_total_and_step(doc):
     count_mismatch = {}  # 数量不匹配的情况
     extra_chars = {}  # 多余的字符
     missing_chars = {}  # 缺少的字符
-    result_dict = get_total_screw()
+    result_dict, page_num = get_total_screw(doc)
     letter_counts = get_step_screw(doc)
 
     # 检查两个字典中的数量是否匹配
@@ -200,37 +219,30 @@ def check_total_and_step(doc):
             print(f"缺少的字符: {key} 在 letter_counts 中不存在")
             missing_chars[key] = result_dict[key]
 
-    return count_mismatch, extra_chars, missing_chars
-
-
-def find_target_table(doc):
-    # 获取PDF的页数
-    total_pages = doc.page_count
-    found_tables = []  # 用来存储找到的表格和对应的页号
-
-    # 遍历每一页
-    for page_number in range(1, total_pages + 1):
-        df_list = read_pdf(PDF_PATH, pages=page_number, multiple_tables=True, stream=True)
-        for df in df_list:
-            if df.empty:
-                continue
-            # 检查表格是否符合预期格式
-            if all(x in df.columns for x in ['A', 'B', 'C']) and 'x' in ''.join(df.iloc[:, 1].astype(str)):
-                found_tables.append((df, page_number))  # 添加表格及其页号到列表
-
-    return found_tables  # 返回找到的表格和页号列表
+    return count_mismatch, extra_chars, missing_chars, page_num
 
 
 def add_annotation_with_fitz(doc, annotations):
+    imgs_base64 = []
+
     for page_number, texts in annotations.items():
         # 获取页面对象
         page = doc[page_number - 1]  # 页面索引从0开始
-
         footer_rect = fitz.Rect(0, page.rect.height - 150, page.rect.width, page.rect.height)
-
         # 在页脚区域添加红色文本
-        page.insert_textbox(footer_rect, texts, color=fitz.utils.getColor("red"), fontsize=12,
-                            align=fitz.TEXT_ALIGN_LEFT)
+        page.insert_textbox(footer_rect, texts, color=fitz.utils.getColor("red"), fontsize=12, align=fitz.TEXT_ALIGN_LEFT)
+        # 将页面转换为图像
+        pix = page.get_pixmap(alpha=False)
+        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+
+        # 将图像转换为base64编码
+        buffer = BytesIO()
+        img.save(buffer, format="PNG")  # 可以选择PNG或者JPEG格式
+        img_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+        buffer.close()
+        imgs_base64.append(f"data:image/jpeg;base64,{img_base64}")
+
+    return imgs_base64
 
 
 # 主函数
@@ -240,45 +252,41 @@ def check_screw(file):
     if not os.path.isdir(IMAGE_PATH):
         os.makedirs(IMAGE_PATH)
 
-    count_mismatch, extra_chars, missing_chars = check_total_and_step(doc)
-    found_tables = find_target_table(doc)
+    count_mismatch, extra_chars, missing_chars, page_num = check_total_and_step(doc)
 
     annotations = {}
     print(count_mismatch)
 
     # 数量不匹配的情况
     if count_mismatch:
-        for _, page_number in found_tables:
-            mismatch_texts = []
-            for key, counts in count_mismatch.items():
-                mismatch_text = f"mismatch: {key} count={counts['expected']} step={counts['actual']}"
-                mismatch_texts.append(mismatch_text)
-            annotations[page_number] = " ".join(mismatch_texts)
+        mismatch_texts = []
+        for key, counts in count_mismatch.items():
+            mismatch_text = f"mismatch: {key} count={counts['expected']} step={counts['actual']}"
+            mismatch_texts.append(mismatch_text)
+        annotations[page_num] = " ".join(mismatch_texts)
 
     # 螺丝盒缺少种类螺丝的情况
     if extra_chars:
-        for _, page_number in found_tables:
-            extra_texts = []
-            for key, count in extra_chars.items():
-                extra_text = f"missing: total {key}={count}"
-                extra_texts.append(extra_text)
-            annotations[page_number] = " ".join(extra_texts)
+        extra_texts = []
+        for key, count in extra_chars.items():
+            extra_text = f"missing: total {key}={count}"
+            extra_texts.append(extra_text)
+        annotations[page_num] = " ".join(extra_texts)
 
     # 螺丝盒多余种类螺丝的情况
     if missing_chars:
-        for _, page_number in found_tables:
-            missing_texts = []
-            for key, count in missing_chars.items():
-                missing_text = f"extra: total {key}={count}"
-                missing_texts.append(missing_text)
-            annotations[page_number] = " ".join(missing_texts)
+        missing_texts = []
+        for key, count in missing_chars.items():
+            missing_text = f"extra: total {key}={count}"
+            missing_texts.append(missing_text)
+        annotations[page_num] = " ".join(missing_texts)
 
-    add_annotation_with_fitz(doc, annotations)
+    doc_base64 = add_annotation_with_fitz(doc, annotations)
 
     # 将文档转换成字节流
-    doc_bytes = doc.write()
+    # doc_bytes = doc.write()
     # 将字节流进行base64编码
-    doc_base64 = base64.b64encode(doc_bytes).decode('utf-8')
+    # doc_base64 = base64.b64encode(doc_bytes).decode('utf-8')
 
     doc.close()
     os.remove(CSV_PATH)
