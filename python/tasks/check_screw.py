@@ -12,6 +12,9 @@ from PIL import Image
 from tabula import read_pdf
 from collections import defaultdict
 from ppocronnx.predict_system import TextSystem
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Border, Side, Font
+
 
 
 CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -168,23 +171,33 @@ def recognize_text_in_images(image_paths):
 def get_image_text(extracted_images):
     text_sys = TextSystem()
     pattern = r'(\d+)\s*X\s*([A-Z])'
-    # 初始化一个defaultdict来存储总和，这样每个新键默认值为0
-    letter_counts = defaultdict(int)
+    page_pattern = r'step_(\d+)_'
 
-    # 检测并识别文本
+    letter_counts = defaultdict(int)
+    letter_count = defaultdict(list)
+    letter_pageNumber = defaultdict(list)
+
     for image_path in extracted_images:
         img = cv2.imread(image_path)
         res = text_sys.detect_and_ocr(img)
-        for boxed_result in res:
-            # 使用正则表达式匹配文本
-            matches = re.findall(pattern, boxed_result.ocr_text)
-            # 遍历所有匹配的文本片段
-            for number, letter in matches:
-                # 累加匹配到的数字到对应的字母上
-                letter_counts[letter] += int(number)
 
-    # 将defaultdict转换为普通字
-    return dict(letter_counts)
+        # 提取页码
+        page_match = re.search(page_pattern, image_path)
+        if page_match:
+            page_number = int(page_match.group(1))
+
+        for boxed_result in res:
+            matches = re.findall(pattern, boxed_result.ocr_text)
+            for number_str, letter in matches:
+                number = int(number_str)
+                letter_counts[letter] += number
+                letter_count[letter].append(number)
+
+                # 检查页码是否已经记录在列表中
+                if page_number not in letter_pageNumber[letter]:
+                    letter_pageNumber[letter].append(page_number)
+
+    return dict(letter_counts), dict(letter_count), dict(letter_pageNumber)
 
 
 # 获取步骤螺丝
@@ -192,9 +205,9 @@ def get_step_screw(doc):
     # 提取步骤下方的图像
     extracted_images = extract_images_below_steps(doc)
     extracted_images = recognize_text_in_images(extracted_images)
-    letter_counts = get_image_text(extracted_images)
+    letter_counts,letter_count,letter_pageNumber = get_image_text(extracted_images)
 
-    return letter_counts
+    return letter_counts,letter_count,letter_pageNumber
 
 
 def check_total_and_step(doc):
@@ -202,7 +215,7 @@ def check_total_and_step(doc):
     extra_chars = {}  # 多余的字符
     missing_chars = {}  # 缺少的字符
     result_dict, page_num = get_total_screw(doc)
-    letter_counts = get_step_screw(doc)
+    letter_counts,letter_count,letter_pageNumber = get_step_screw(doc)
 
     # 检查两个字典中的数量是否匹配
     for key in letter_counts:
@@ -220,31 +233,159 @@ def check_total_and_step(doc):
             print(f"缺少的字符: {key} 在 letter_counts 中不存在")
             missing_chars[key] = result_dict[key]
 
-    return count_mismatch, extra_chars, missing_chars, page_num
+    return count_mismatch, extra_chars, missing_chars, page_num, letter_count, letter_pageNumber, result_dict
 
 
-def add_annotation_with_fitz(doc, annotations):
-    imgs_base64 = []
+# 写回错误信息,返回的是excel
+def create_styled_excel(result_dict, count_mismatch, letter_count, letter_pageNumber,file_path):
+    # 检查 count_mismatch 是否为空
+    if not count_mismatch:
+        # 创建 Excel 工作簿和工作表
+        wb = Workbook()
+        ws = wb.active
 
-    for page_number, texts in annotations.items():
-        # 获取页面对象
-        page = doc[page_number - 1]  # 页面索引从0开始
-        footer_rect = fitz.Rect(0, page.rect.height - 150, page.rect.width, page.rect.height)
-        # 在页脚区域添加红色文本
-        page.insert_textbox(footer_rect, texts, color=fitz.utils.getColor("red"), fontsize=12, align=fitz.TEXT_ALIGN_LEFT)
-        # 将页面转换为图像
-        pix = page.get_pixmap(alpha=False)
-        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+        # 创建合并单元格的标题
+        ws.merge_cells('A1:E1')
+        ws['A1'] = '螺丝对比结果'
+        ws.merge_cells('A2:E2')
+        ws['A2'] = '正确总数量螺丝'
 
-        # 将图像转换为base64编码
-        buffer = BytesIO()
-        img.save(buffer, format="PNG")  # 可以选择PNG或者JPEG格式
-        img_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
-        buffer.close()
-        imgs_base64.append(f"data:image/jpeg;base64,{img_base64}")
+        # 对标题应用样式
+        for cell in ws["1:1"] + ws["2:2"]:
+            cell.font = Font(bold=True, size=12)
+            cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    return imgs_base64
+        # 添加列标题
+        ws.append(['螺丝型号', '螺丝总数量', '步骤螺丝总数量', '步骤螺丝个数', '步骤螺丝页数'])
 
+        # 填充数据
+        for letter, total in result_dict.items():
+            ws.append([
+                letter,
+                total,
+                total,  # 假设正确数量与总数相同，因为 count_mismatch 为空
+                ', '.join(map(str, letter_count.get(letter, []))),
+                ', '.join(map(str, letter_pageNumber.get(letter, []))),
+            ])
+
+        # 对所有数据单元格应用细边框
+        thin = Side(border_style="thin", color="000000")
+        for row in ws.iter_rows(min_row=3, max_row=len(result_dict) + 3, min_col=1, max_col=5):
+            for cell in row:
+                cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        # 设置列宽
+        ws.column_dimensions['A'].width = 12
+        ws.column_dimensions['B'].width = 12
+        ws.column_dimensions['C'].width = 15
+        ws.column_dimensions['D'].width = 18
+        ws.column_dimensions['E'].width = 25
+
+        # 保存文件
+        wb.save(file_path)
+
+        return file_path
+    else:
+        # 将不匹配的键，在result_dict里删除
+        for mismatch_key in count_mismatch.keys():
+            if mismatch_key in result_dict:
+                del result_dict[mismatch_key]  # Remove the key from result_dict
+
+        # 写第一行螺丝对比结果
+        wb = Workbook()
+        ws = wb.active
+        # 记入表格行数
+        row_count = 1
+        ws.merge_cells(f'A{row_count}:E{row_count}')
+        ws['A1'] = '螺丝对比结果'
+        # 设置样式和边框
+        thin = Side(border_style="thin", color="000000")
+        header_font = Font(bold=True, size=12)
+        align_center = Alignment(horizontal="center", vertical="center")
+        # 应用样式到合并的标题单元格
+        for row in ws.iter_rows(min_row=row_count, max_row=row_count, min_col=1, max_col=5):
+            for cell in row:
+                cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
+                cell.alignment = align_center
+                cell.font = header_font
+        row_count += 1
+
+        # 如果 result_dict 不为空，则继续创建 Excel 工作簿和工作表
+        if result_dict:
+            # 应用样式
+            ws.merge_cells(f'A{row_count}:E{row_count}')
+            ws[f'A{row_count}'] = '正确总数量螺丝'
+            header_font = Font(bold=True, size=12, color="0000FF")
+            # 应用样式到合并的标题单元格
+            for row in ws.iter_rows(min_row=row_count, max_row=row_count, min_col=1, max_col=5):
+                for cell in row:
+                    cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
+                    cell.alignment = align_center
+                    cell.font = header_font
+            row_count += 1
+            # 添加列标题
+            headers = ['螺丝型号', '螺丝包总数量', '步骤螺丝总数量', '步骤螺丝个数', '步骤螺丝页数']
+            ws.append(headers)
+            for cell in ws[3]:
+                cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
+                cell.alignment = align_center
+                cell.font = header_font
+
+            # 添加数据行
+            for key, value in result_dict.items():
+                row_count += 1
+                ws.append([
+                    key,
+                    value,
+                    value,
+                    ', '.join(map(str, letter_count.get(key, []))),
+                    ', '.join(map(str, letter_pageNumber.get(key, [])))
+                ])
+
+            # 应用边框和对齐到数据单元格
+            for row in ws.iter_rows(min_row=4, min_col=1, max_col=5, max_row=ws.max_row):
+                for cell in row:
+                    cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
+                    cell.alignment = align_center
+
+            # 设置列宽
+            ws.column_dimensions['A'].width = 18
+            ws.column_dimensions['B'].width = 18
+            ws.column_dimensions['C'].width = 25
+            ws.column_dimensions['D'].width = 25
+            ws.column_dimensions['E'].width = 25
+        # 写错误部分
+        # 应用样式
+        ws.merge_cells(f'A{row_count}:E{row_count}')
+        ws[f'A{row_count}'] = '错误总数量螺丝'
+        header_font = Font(bold=True, size=12, color="FF0000")
+        # 应用样式到合并的标题单元格
+        for row in ws.iter_rows(min_row=row_count, max_row=row_count, min_col=1, max_col=5):
+            for cell in row:
+                cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
+                cell.alignment = align_center
+                cell.font = header_font
+        for mismatch_key, counts in count_mismatch.items():
+            expected_count = counts['expected']
+            actual_count = counts['actual']
+            ws.append([
+                mismatch_key,
+                expected_count,
+                actual_count,
+                ', '.join(map(str, letter_count.get(mismatch_key, []))),
+                ', '.join(map(str, letter_pageNumber.get(mismatch_key, [])))
+            ])
+            # 应用边框和对齐到数据单元格
+            for row in ws.iter_rows(min_row=row_count, min_col=1, max_col=5, max_row=ws.max_row):
+                for cell in row:
+                    cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
+                    cell.alignment = align_center
+        # 保存文件
+
+        wb.save(file_path)
+
+        return file_path
 
 # 主函数
 def check_screw(file):
@@ -253,37 +394,14 @@ def check_screw(file):
     if not os.path.isdir(IMAGE_PATH):
         os.makedirs(IMAGE_PATH)
 
-    count_mismatch, extra_chars, missing_chars, page_num = check_total_and_step(doc)
+    count_mismatch, extra_chars, missing_chars, page_num,letter_count,letter_pageNumber,result_dict = check_total_and_step(doc)
 
-    annotations = {}
-    print(count_mismatch)
-
-    # 数量不匹配的情况
-    if count_mismatch:
-        mismatch_texts = []
-        for key, counts in count_mismatch.items():
-            mismatch_text = f"mismatch: {key} count={counts['expected']} step={counts['actual']}"
-            mismatch_texts.append(mismatch_text)
-        annotations[page_num] = " ".join(mismatch_texts)
-
-    # 螺丝盒缺少种类螺丝的情况
-    if extra_chars:
-        extra_texts = []
-        for key, count in extra_chars.items():
-            extra_text = f"missing: total {key}={count}"
-            extra_texts.append(extra_text)
-        annotations[page_num] = " ".join(extra_texts)
-
-    # 螺丝盒多余种类螺丝的情况
-    if missing_chars:
-        missing_texts = []
-        for key, count in missing_chars.items():
-            missing_text = f"extra: total {key}={count}"
-            missing_texts.append(missing_text)
-        annotations[page_num] = " ".join(missing_texts)
-
-    doc_base64 = add_annotation_with_fitz(doc, annotations)
-
+    # annotations = {}
+    print(f"count_mismatch = {count_mismatch}")
+    
+    output_excel_path = f'1.xlsx'
+    # print(annotations)
+    output_excel_path = create_styled_excel(result_dict, count_mismatch, letter_count, letter_pageNumber,output_excel_path)
     # 将文档转换成字节流
     # doc_bytes = doc.write()
     # 将字节流进行base64编码
@@ -293,5 +411,11 @@ def check_screw(file):
     os.remove(CSV_PATH)
     os.remove(PDF_PATH)
     shutil.rmtree(IMAGE_PATH)
+    # 使用 BytesIO 读取 Excel 文件内容并进行base64编码
+    with open(output_excel_path, 'rb') as excel_file:
+    # 读取文件内容为二进制数据并转换为base64字符串
+        excel_base64 = base64.b64encode(excel_file.read()).decode('utf-8')
 
-    return doc_base64
+    return excel_base64
+    
+    # return doc_base64
