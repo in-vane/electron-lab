@@ -13,6 +13,7 @@ from tabula import read_pdf
 from collections import defaultdict
 from ppocronnx.predict_system import TextSystem
 
+
 CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
 PDF_PATH = os.path.join(CURRENT_PATH, "temp.pdf")
 IMAGE_PATH = os.path.join(CURRENT_PATH, "image")

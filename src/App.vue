@@ -127,6 +127,16 @@ const menuOptions = [
     key: 'language',
     icon: renderIcon(LanguageIcon),
   },
+  {
+    label: () =>
+      h(
+        RouterLink,
+        { to: { path: '/camera' } },
+        { default: () => '摄像头测试' }
+      ),
+    key: 'camera',
+    icon: renderIcon(LanguageIcon),
+  },
 ];
 </script>
 

@@ -52,8 +52,9 @@ const handleUpload = () => {
   <n-space vertical>
     <n-spin :show="loading">
       <n-upload
-        multiple
         ref="upload"
+        accept=".pdf"
+        :max="1"
         :default-upload="false"
         v-model:file-list="fileList"
         @change="handleChange"

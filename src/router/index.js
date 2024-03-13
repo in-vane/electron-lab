@@ -53,6 +53,11 @@ const router = createRouter({
       name: 'language',
       component: () => import('../views/LanguageView.vue'),
     },
+    {
+      path: '/camera',
+      name: 'langcamerauage',
+      component: () => import('../views/CameraView.vue'),
+    },
     // {
     //   path: '/about',
     //   name: 'about',

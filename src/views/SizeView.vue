@@ -63,8 +63,9 @@ const handleUpload = () => {
     </n-space>
     <n-spin :show="loading">
       <n-upload
-        multiple
         ref="upload"
+        accept=".pdf"
+        :max="1"
         :default-upload="false"
         v-model:file-list="fileList"
         @change="handleChange"
@@ -84,9 +85,15 @@ const handleUpload = () => {
         </n-upload-dragger>
       </n-upload>
     </n-spin>
-    <n-h3 prefix="bar" :type="isError ? 'error' : 'success'">
-      {{ msg }}
-    </n-h3>
+    <div v-show="msg">
+      <n-h3
+        prefix="bar"
+        :class="`n-h3-${isError ? 'error' : 'success'}`"
+        :type="isError ? 'error' : 'success'"
+      >
+        检测结果: {{ msg }}
+      </n-h3>
+    </div>
     <n-image v-show="response" :src="response" alt="image" width="100%" />
   </n-space>
 </template>
@@ -95,5 +102,23 @@ const handleUpload = () => {
 .n-image {
   border: solid 1px rgb(224, 224, 230);
   border-radius: 3px;
+}
+.n-h3 {
+  position: relative;
+}
+.n-h3-success::after,
+.n-h3-error::after {
+  content: ' ';
+  width: calc(100% - 8px);
+  height: 100%;
+  position: absolute;
+  left: 8px;
+  border-radius: 3px;
+}
+.n-h3-success::after {
+  background: rgba(24, 160, 88, 0.2);
+}
+.n-h3-error::after {
+  background: rgba(208, 48, 80, 0.2);
 }
 </style>

@@ -9,7 +9,7 @@ from skimage.metrics import structural_similarity
 
 
 # 常量
-DPI = 300
+DPI = 600
 
 
 def img2base64(img):

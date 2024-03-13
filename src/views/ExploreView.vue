@@ -16,13 +16,14 @@ import {
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
 import VuePictureCropper, { cropper } from 'vue-picture-cropper';
+import { handleDownload } from '@/utils';
 
 const message = useMessage();
 const fileList = ref([]);
 const images = ref([]);
 const cropend = ref([]);
 const currentImg = ref(0);
-const compared = ref(null);
+const compared = ref('');
 const upload = ref(null);
 const loadingUpload = ref(false);
 const loadingCompare = ref(false);
@@ -94,6 +95,11 @@ const handleCompare = () => {
     });
 };
 
+const handleSaveResult = () => {
+  const data = compared.value.split(',')[1];
+  handleDownload(data, 'png');
+};
+
 const handleKeyDownEsc = (e) => {
   if (e.keyCode == 27) {
     cropper.clear();
@@ -115,12 +121,16 @@ onUnmounted(() => {
     <n-space vertical>
       <n-space justify="space-between">
         <n-h3 prefix="bar">1. 上传PDF</n-h3>
-        <n-button type="primary" @click="handleUpload"> 开始转换 </n-button>
+        <n-button type="primary" :ghost="true" @click="handleUpload">
+          开始转换
+        </n-button>
       </n-space>
       <n-spin :show="loadingUpload">
         <n-upload
           multiple
           ref="upload"
+          accept=".pdf"
+          :max="2"
           :default-upload="false"
           v-model:file-list="fileList"
           @change="handleChange"
@@ -144,8 +154,8 @@ onUnmounted(() => {
       <n-spin :show="loadingCompare">
         <div class="box-divider">
           <div class="box-divider-vertical">
-            <n-h3 prefix="bar">2. 单击缩略图以切换选择区域</n-h3>
             <div class="box-divider-item">
+              <n-h3 prefix="bar">2. 单击缩略图以切换选择区域</n-h3>
               <div
                 :class="`preview-box ${
                   images.length ? '' : 'preview-box-skeleton'
@@ -163,8 +173,8 @@ onUnmounted(() => {
                 />
               </div>
             </div>
-            <n-h3 prefix="bar">3. 选择区域</n-h3>
             <div class="box-divider-item">
+              <n-h3 prefix="bar">3. 选择区域</n-h3>
               <vue-picture-cropper
                 :boxStyle="{
                   height: '500px',
@@ -183,13 +193,13 @@ onUnmounted(() => {
             </div>
           </div>
           <div class="box-divider-vertical">
-            <n-space justify="space-between">
-              <n-h3 prefix="bar">4. 选中区域预览</n-h3>
-              <n-button type="primary" @click="handleCompare">
-                开始对比
-              </n-button>
-            </n-space>
             <div class="box-divider-item">
+              <n-space justify="space-between">
+                <n-h3 prefix="bar">4. 选中区域预览</n-h3>
+                <n-button type="primary" :ghost="true" @click="handleCompare">
+                  开始对比
+                </n-button>
+              </n-space>
               <div
                 :class="`preview-box ${
                   cropend.length ? '' : 'preview-box-skeleton'
@@ -205,10 +215,21 @@ onUnmounted(() => {
                 />
               </div>
             </div>
-            <n-h3 prefix="bar">5. 对比结果</n-h3>
             <div class="box-divider-item">
+              <n-space justify="space-between">
+                <n-h3 prefix="bar">5. 对比结果</n-h3>
+                <n-button
+                  type="primary"
+                  :ghost="true"
+                  @click="handleSaveResult"
+                >
+                  保存结果
+                </n-button>
+              </n-space>
               <div
-                :class="`preview-box preview-box-result ${compared ? '' : 'preview-box-skeleton'}`"
+                :class="`preview-box preview-box-result ${
+                  compared ? '' : 'preview-box-skeleton'
+                }`"
               >
                 <n-image
                   v-show="compared"
@@ -233,15 +254,9 @@ onUnmounted(() => {
 }
 .box-divider-vertical {
   width: 50%;
-  /* border-top: 1px solid rgb(239, 239, 245); */
-  /* padding-top: 24px; */
-  margin-top: 16px;
 }
 .box-divider-item {
-  margin-top: 16px;
-}
-.n-h3 {
-  margin-bottom: 0;
+  margin-top: 32px;
 }
 .preview-box {
   display: flex;
@@ -253,7 +268,7 @@ onUnmounted(() => {
   background: rgb(250, 250, 252);
   border: 1px dashed rgb(224, 224, 230);
 }
-.preview-box-result{
+.preview-box-result {
   min-height: 500px;
 }
 .n-image {

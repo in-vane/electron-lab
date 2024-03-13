@@ -36,8 +36,8 @@ const handleUpload = () => {
     .then((res) => {
       console.log(res);
       response.value = res.json.data;
-      errorPages.value = res.json.error_page
-      handleDownload(response.value);
+      errorPages.value = res.json.error_page;
+      handleDownload(response.value, 'pdf');
     })
     .catch((error) => {})
     .finally(() => {

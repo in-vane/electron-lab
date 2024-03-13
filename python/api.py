@@ -63,6 +63,7 @@ class MainHandler(tornado.web.RequestHandler):
             base64_data = _argument[comma_index + 1:]
             arguments.append(base64_data)
 
+        # 路由分发
         if self.request.path == '/ce':
             image_base64 = tasks.compare_ce(file_list[0],file_list[1])
             custom_data = {"data": f"{BASE64_IMG}{image_base64}"}
