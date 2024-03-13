@@ -168,23 +168,33 @@ def recognize_text_in_images(image_paths):
 def get_image_text(extracted_images):
     text_sys = TextSystem()
     pattern = r'(\d+)\s*X\s*([A-Z])'
-    # 初始化一个defaultdict来存储总和，这样每个新键默认值为0
-    letter_counts = defaultdict(int)
+    page_pattern = r'step_(\d+)_'
 
-    # 检测并识别文本
+    letter_counts = defaultdict(int)
+    letter_count = defaultdict(list)
+    letter_pageNumber = defaultdict(list)
+
     for image_path in extracted_images:
         img = cv2.imread(image_path)
         res = text_sys.detect_and_ocr(img)
-        for boxed_result in res:
-            # 使用正则表达式匹配文本
-            matches = re.findall(pattern, boxed_result.ocr_text)
-            # 遍历所有匹配的文本片段
-            for number, letter in matches:
-                # 累加匹配到的数字到对应的字母上
-                letter_counts[letter] += int(number)
 
-    # 将defaultdict转换为普通字
-    return dict(letter_counts)
+        # 提取页码
+        page_match = re.search(page_pattern, image_path)
+        if page_match:
+            page_number = int(page_match.group(1))
+
+        for boxed_result in res:
+            matches = re.findall(pattern, boxed_result.ocr_text)
+            for number_str, letter in matches:
+                number = int(number_str)
+                letter_counts[letter] += number
+                letter_count[letter].append(number)
+
+                # 检查页码是否已经记录在列表中
+                if page_number not in letter_pageNumber[letter]:
+                    letter_pageNumber[letter].append(page_number)
+
+    return dict(letter_counts), dict(letter_count), dict(letter_pageNumber)
 
 
 # 获取步骤螺丝
