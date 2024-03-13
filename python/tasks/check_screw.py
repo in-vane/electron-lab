@@ -411,4 +411,11 @@ def check_screw(file):
     os.remove(CSV_PATH)
     os.remove(PDF_PATH)
     shutil.rmtree(IMAGE_PATH)
-    return doc_base64
+    # 使用 BytesIO 读取 Excel 文件内容并进行base64编码
+    with open(output_excel_path, 'rb') as excel_file:
+    # 读取文件内容为二进制数据并转换为base64字符串
+        excel_base64 = base64.b64encode(excel_file.read()).decode('utf-8')
+
+    return excel_base64
+    
+    # return doc_base64
