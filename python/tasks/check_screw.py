@@ -202,9 +202,9 @@ def get_step_screw(doc):
     # 提取步骤下方的图像
     extracted_images = extract_images_below_steps(doc)
     extracted_images = recognize_text_in_images(extracted_images)
-    letter_counts = get_image_text(extracted_images)
+    letter_counts,letter_count,letter_pageNumber = get_image_text(extracted_images)
 
-    return letter_counts
+    return letter_counts,letter_count,letter_pageNumber
 
 
 def check_total_and_step(doc):
@@ -212,7 +212,7 @@ def check_total_and_step(doc):
     extra_chars = {}  # 多余的字符
     missing_chars = {}  # 缺少的字符
     result_dict, page_num = get_total_screw(doc)
-    letter_counts = get_step_screw(doc)
+    letter_counts,letter_count,letter_pageNumber = get_step_screw(doc)
 
     # 检查两个字典中的数量是否匹配
     for key in letter_counts:
@@ -230,7 +230,7 @@ def check_total_and_step(doc):
             print(f"缺少的字符: {key} 在 letter_counts 中不存在")
             missing_chars[key] = result_dict[key]
 
-    return count_mismatch, extra_chars, missing_chars, page_num
+    return count_mismatch, extra_chars, missing_chars, page_num, letter_count, letter_pageNumber, result_dict
 
 
 def add_annotation_with_fitz(doc, annotations):
@@ -263,7 +263,7 @@ def check_screw(file):
     if not os.path.isdir(IMAGE_PATH):
         os.makedirs(IMAGE_PATH)
 
-    count_mismatch, extra_chars, missing_chars, page_num = check_total_and_step(doc)
+    count_mismatch, extra_chars, missing_chars, page_num,letter_count,letter_pageNumber,result_dict = check_total_and_step(doc)
 
     annotations = {}
     print(count_mismatch)
