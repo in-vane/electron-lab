@@ -232,7 +232,7 @@ def check_total_and_step(doc):
 
     return count_mismatch, extra_chars, missing_chars, page_num, letter_count, letter_pageNumber, result_dict
 
-
+"""
 def add_annotation_with_fitz(doc, annotations):
     imgs_base64 = []
 
@@ -254,7 +254,7 @@ def add_annotation_with_fitz(doc, annotations):
         imgs_base64.append(f"data:image/jpeg;base64,{img_base64}")
 
     return imgs_base64
-
+"""
 
 # 主函数
 def check_screw(file):
@@ -265,9 +265,9 @@ def check_screw(file):
 
     count_mismatch, extra_chars, missing_chars, page_num,letter_count,letter_pageNumber,result_dict = check_total_and_step(doc)
 
-    annotations = {}
-    print(count_mismatch)
-
+    # annotations = {}
+    print(f"count_mismatch = {count_mismatch}")
+    """
     # 数量不匹配的情况
     if count_mismatch:
         mismatch_texts = []
@@ -293,7 +293,7 @@ def check_screw(file):
         annotations[page_num] = " ".join(missing_texts)
 
     doc_base64 = add_annotation_with_fitz(doc, annotations)
-
+    """
     # 将文档转换成字节流
     # doc_bytes = doc.write()
     # 将字节流进行base64编码
