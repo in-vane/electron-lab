@@ -104,7 +104,7 @@ def extract_page_numbers(doc):
 # 示例用法
 def check_page_number(file):
     doc = fitz.open(stream=BytesIO(file))
-
+    
     # 生成物理页码列表，从1开始到总页数
     physical_page_numbers = list(range(1, len(doc) + 1))
     # 获取文件中的页码表

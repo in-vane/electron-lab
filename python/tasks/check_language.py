@@ -198,7 +198,7 @@ def find_mismatched_languages(doc, detected_languages, page_number):
 # 主函数
 def check_language(file):
     doc = fitz.open(stream=BytesIO(file))
-    doc = fitz.open(file)
+    # doc = fitz.open(file)
     total_pages = doc.page_count
     language_pages = get_directory(doc)
     language_page = language_pages[0][0]
