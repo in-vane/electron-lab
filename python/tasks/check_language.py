@@ -45,7 +45,7 @@ def find_language_index_page(page_texts):
                         i += 1  # 跳过下一个元素，因为它是页码
                         current_pagenum = int(next_page_number)
                         directory_information[language] = int(next_page_number)
-    
+
     # 如果一个页面上有超过两个匹配项，则认为是语言目录页
     is_index = language_entries_count > 2
 
@@ -156,15 +156,30 @@ def detect_language_of_texts(texts_by_languages):
     return detected_languages
 
 
-def add_annotation_with_fitz(doc, annotations):
-    for page_number, texts in annotations.items():
-        # 获取页面对象
-        page = doc[page_number - 1]  # 页面索引从0开始
-        top_right_rect = fitz.Rect(page.rect.width / 2, 30, page.rect.width - 30, 80)
+def process_language_messages(mismatched_languages, language_message, total_pages):
+    # Sort language_message by values
+    sorted_languages = sorted(language_message.items(), key=lambda x: x[1])
 
-        # 在右上角区域添加红色文本
-        page.insert_textbox(top_right_rect, texts, color=fitz.utils.getColor("red"), fontsize=12,
-                            align=fitz.TEXT_ALIGN_RIGHT)
+    # Construct new language_message dictionary
+    new_language_message = {}
+    for i in range(len(sorted_languages)):
+        if i == len(sorted_languages) - 1:
+            new_language_message[f"语言{sorted_languages[i][0]}"] = f"{sorted_languages[i][1]}页到{total_pages}页"
+        else:
+            new_language_message[
+                f"语言{sorted_languages[i][0]}"] = f"{sorted_languages[i][1]}页到{sorted_languages[i + 1][1] - 1}页"
+
+    # Construct new mismatched_languages dictionary
+    new_mismatched_languages = {}
+    for lang, pages in mismatched_languages.items():
+        lang_key = f"语言{lang}"
+        if lang_key in new_language_message:
+            new_mismatched_languages[lang_key] = f"{new_language_message[lang_key]}，而正文却是语言{pages}"
+
+    # Delete keys from language_message if present in mismatched_languages
+    matched_languages = {k: v for k, v in new_language_message.items() if k not in new_mismatched_languages}
+
+    return matched_languages, new_mismatched_languages
 
 
 def find_mismatched_languages(doc, detected_languages, page_number):
@@ -175,12 +190,7 @@ def find_mismatched_languages(doc, detected_languages, page_number):
         # Compare the key and value ignoring case, add to mismatched if they don't match
         if key.lower() != value.lower():
             mismatched[key] = value
-    # 根据mismatched字典构造注释文本
-    # annotations_text = " ".join([f"{key}:{value}" for key, value in mismatched.items()])
 
-    # 将注释文本与页面编号关联
-    # annotations = {page_number[0]: annotations_text}
-    # add_annotation_with_fitz(doc, annotations)
 
     return mismatched
 
@@ -188,8 +198,11 @@ def find_mismatched_languages(doc, detected_languages, page_number):
 # 主函数
 def check_language(file):
     doc = fitz.open(stream=BytesIO(file))
-
+    doc = fitz.open(file)
+    total_pages = doc.page_count
     language_pages = get_directory(doc)
+    language_page = language_pages[0][0]
+    language_message =language_pages[1]
     texts_by_languages = extract_text_by_language(doc, language_pages[1])
     detected_languages = detect_language_of_texts(texts_by_languages)
 
@@ -200,7 +213,11 @@ def check_language(file):
     print(f"detected_languages: {detected_languages}")
     print(f"mismatched_languages: {mismatched_languages}")
 
+    matched_languages, mismatched_languages = process_language_messages(mismatched_languages, language_message,
+                                                                            total_pages)
+    print(f"matched_languages:{matched_languages}")
+    print(f"mismatched_languages: {mismatched_languages}")
     doc.close()
     shutil.rmtree(IMAGE_PATH)
 
-    return is_error, mismatched_languages
+    return is_error, mismatched_languages, matched_languages, language_page
