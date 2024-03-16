@@ -21,6 +21,7 @@ CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
 PDF_PATH = os.path.join(CURRENT_PATH, "temp.pdf")
 IMAGE_PATH = os.path.join(CURRENT_PATH, "image")
 CSV_PATH = os.path.join(CURRENT_PATH, "selected_table.csv")
+EXCEL_PATH = os.path.join(CURRENT_PATH, "result.xlsx")
 
 
 def find_target_table(doc):
@@ -237,13 +238,13 @@ def check_total_and_step(doc):
 
 
 # 写回错误信息,返回的是excel
-def create_styled_excel(result_dict, count_mismatch, letter_count, letter_pageNumber,file_path):
+def create_styled_excel(result_dict, count_mismatch, letter_count, letter_pageNumber):
+    # 创建 Excel 工作簿和工作表
+    wb = Workbook()
+    ws = wb.active
+
     # 检查 count_mismatch 是否为空
     if not count_mismatch:
-        # 创建 Excel 工作簿和工作表
-        wb = Workbook()
-        ws = wb.active
-
         # 创建合并单元格的标题
         ws.merge_cells('A1:E1')
         ws['A1'] = '螺丝对比结果'
@@ -283,9 +284,7 @@ def create_styled_excel(result_dict, count_mismatch, letter_count, letter_pageNu
         ws.column_dimensions['E'].width = 25
 
         # 保存文件
-        wb.save(file_path)
-
-        return file_path
+        # wb.save(EXCEL_PATH)
     else:
         # 将不匹配的键，在result_dict里删除
         for mismatch_key in count_mismatch.keys():
@@ -293,8 +292,6 @@ def create_styled_excel(result_dict, count_mismatch, letter_count, letter_pageNu
                 del result_dict[mismatch_key]  # Remove the key from result_dict
 
         # 写第一行螺丝对比结果
-        wb = Workbook()
-        ws = wb.active
         # 记入表格行数
         row_count = 1
         ws.merge_cells(f'A{row_count}:E{row_count}')
@@ -383,9 +380,8 @@ def create_styled_excel(result_dict, count_mismatch, letter_count, letter_pageNu
                     cell.alignment = align_center
         # 保存文件
 
-        wb.save(file_path)
-
-        return file_path
+        # wb.save(EXCEL_PATH)
+        return wb
 
 # 主函数
 def check_screw(file):
@@ -398,10 +394,9 @@ def check_screw(file):
 
     # annotations = {}
     print(f"count_mismatch = {count_mismatch}")
-    
-    output_excel_path = f'1.xlsx'
+
     # print(annotations)
-    output_excel_path = create_styled_excel(result_dict, count_mismatch, letter_count, letter_pageNumber,output_excel_path)
+    wb = create_styled_excel(result_dict, count_mismatch, letter_count, letter_pageNumber)
     # 将文档转换成字节流
     # doc_bytes = doc.write()
     # 将字节流进行base64编码
@@ -412,9 +407,21 @@ def check_screw(file):
     os.remove(PDF_PATH)
     shutil.rmtree(IMAGE_PATH)
     # 使用 BytesIO 读取 Excel 文件内容并进行base64编码
-    with open(output_excel_path, 'rb') as excel_file:
-    # 读取文件内容为二进制数据并转换为base64字符串
-        excel_base64 = base64.b64encode(excel_file.read()).decode('utf-8')
+    # with open(EXCEL_PATH, 'rb') as excel_file:
+    # # 读取文件内容为二进制数据并转换为base64字符串
+    #     excel_base64 = base64.b64encode(excel_file.read()).decode('utf-8')
+
+    # os.remove(EXCEL_PATH)
+
+    
+    # 创建一个内存中的二进制文件对象
+    excel_buffer = BytesIO()
+    # 保存 Excel 文件到二进制对象中
+    wb.save(excel_buffer)
+    # 将文件指针移至开头
+    excel_buffer.seek(0)
+    # 将二进制数据编码为 Base64 字符串
+    excel_base64 = base64.b64encode(excel_buffer.getvalue()).decode('utf-8')
 
     return excel_base64
     

@@ -1,8 +1,15 @@
+import base64
 import difflib
+from io import BytesIO
+
 import cv2
+import fitz
 import easyocr
 import numpy as np
-import time
+from PIL import Image
+
+
+DPI = 300
 
 
 class ocrImg2imgDifference(object):
@@ -11,9 +18,6 @@ class ocrImg2imgDifference(object):
         self.img2 = img2
         self.lang = lang
         self.reader = easyocr.Reader(self.lang)
-
-        # img1 = cv2.imread(path1)
-        # img2 = cv2.imread(path2)
 
     # 两个检测框框是否有交叉，如果有交集则返回重叠度 IOU, 如果没有交集则返回 0
     def bb_overlab(self, x1, y1, w1, h1, x2, y2, w2, h2):
@@ -46,21 +50,10 @@ class ocrImg2imgDifference(object):
 
     # 对齐两个image
     def imgRefine(self, img1, img2):
-        # img1: the input image 1
-        # img2: the input image 2
-        # align the two images with same size, and output it. Note that, both images are
-
         # 对齐两幅图像，同时将图像缩放到同一比例
         shape0 = int(img2.shape[0])
         shape1 = int(img2.shape[1])
-        # if img1.shape[0] * img1.shape[1] >= img2.shape[0] * img2.shape[1]:
-        #     shape0 = int(img1.shape[0])
-        #     shape1 = int(img1.shape[1])
-        #     img2 = cv2.resize(img2, dsize=(shape1, shape0))
-        # else:
-        #     img1 = cv2.resize(img1, dsize=(shape1, shape0))
         img1 = cv2.resize(img1, dsize=(shape1, shape0))
-
         sift = cv2.SIFT_create()
 
         # 检测关键点
@@ -80,10 +73,7 @@ class ocrImg2imgDifference(object):
         for m, n in matches:
             if m.distance < 0.7 * n.distance:
                 good.append(m)
-
-        # cv2.imshow("FLANN", img_matches)
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
+        
         # 把good中的左右点分别提出来找单应性变换
         pts_src = np.float32([kp1[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
         pts_dst = np.float32([kp2[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
@@ -144,6 +134,7 @@ class ocrImg2imgDifference(object):
             h1_1 = 0
             h1_2 = 0
             radius = 0
+
             for j in range(len(compareList)):
                 if compareList[j][0] == '-':
                     if count1 == 1:
@@ -151,43 +142,24 @@ class ocrImg2imgDifference(object):
                     w1 = result1[i][0][1][0] - result1[i][0][0][0]
                     h1 = int(result1[i][0][2][1] - result1[i][0][0][1])
                     x1 = int(result1[i][0][0][0])  # + (count1) * int(w1 / len1))
-                    # x1 = int(result1[i][0][0][0] )
                     y1 = int(result1[i][0][0][1])
                     radius = int(w1 / len1)
                     x1_1 = x1
                     y1_1 = y1
                     h1_1 = h1
-                    # w1=10
-                    # after_img2[y1:(y1+3), x1:(x1 + w1)] = 0
-                    # after_img2[(y1 + h1):(y1 + h1+3), x1:(x1 + w1)] = 0
-                    #
-                    # after_img2[y1:(y1 + h1), x1:(x1 + 3)] = 0
-                    # after_img2[(y1):(y1 + h1), (x1+w1):(x1+w1 + 3)] = 0
                     count1 = count1 + 1
-                    # break
-                    # cv2.circle(before_img1,[x1,y1],2,[0,0,255],1)
                 if compareList[j][0] == '+':
                     if count2 == 1:
                         countJ2 = j - count1
                     w1 = result2[int(match[i])][0][1][0] - result2[int(match[i])][0][0][0]
                     h1 = int(result2[int(match[i])][0][2][1] - result2[int(match[i])][0][0][1])
                     x1 = int(result2[int(match[i])][0][0][0])  # + (count2) * int(w1 / len2))
-                    # x1 = int(result1[i][0][0][0])
                     y1 = int(result2[int(match[i])][0][0][1])
                     radius = int(w1 / len2)
                     x1_2 = x1
                     y1_2 = y1
                     h1_2 = h1
-
-                    # w1=10
-                    # after_img2[y1:(y1 + 3), x1:(x1 + w1)] = 0
-                    # after_img2[(y1 + h1):(y1 + h1 + 3), x1:(x1 + w1)] = 0
-                    #
-                    # after_img2[y1:(y1 + h1), x1:(x1 + 3)] = 0
-                    # after_img2[(y1):(y1 + h1), (x1 + w1):(x1 + w1 + 3)] = 0
                     count2 = count2 + 1
-                    # break
-                    # cv2.circle(before_img1,[x1,y1],2,[0,0,255],1)
             if count1 != 0:
                 w1 = count1 * radius
                 x1 = x1_1 + countJ1 * radius
@@ -195,7 +167,6 @@ class ocrImg2imgDifference(object):
                 h1 = h1_1
                 after_img2[y1:(y1 + 3), x1:(x1 + w1)] = 0
                 after_img2[(y1 + h1):(y1 + h1 + 3), x1:(x1 + w1)] = 0
-
                 after_img2[y1:(y1 + h1), x1:(x1 + 3)] = 0
                 after_img2[(y1):(y1 + h1), (x1 + w1):(x1 + w1 + 3)] = 0
             if count2 != 0:
@@ -205,7 +176,6 @@ class ocrImg2imgDifference(object):
                 h1 = h1_2
                 after_img2[y1:(y1 + 3), x1:(x1 + w1)] = 0
                 after_img2[(y1 + h1):(y1 + h1 + 3), x1:(x1 + w1)] = 0
-
                 after_img2[y1:(y1 + h1), x1:(x1 + 3)] = 0
                 after_img2[(y1):(y1 + h1), (x1 + w1):(x1 + w1 + 3)] = 0
         for i in range(unMatch.shape[0]):
@@ -214,10 +184,8 @@ class ocrImg2imgDifference(object):
                 h1 = int(result2[i][0][2][1] - result2[i][0][0][1])
                 x1 = int(result2[i][0][0][0])
                 y1 = int(result2[i][0][0][1])
-                # before_img1[y1:(y1 + 10), x1:(x1 + 10)] = 255
                 after_img2[y1:(y1 + 3), x1:(x1 + w1)] = 0
                 after_img2[(y1 + h1):(y1 + h1 + 3), x1:(x1 + w1)] = 0
-
                 after_img2[y1:(y1 + h1), x1:(x1 + 3)] = 0
                 after_img2[(y1):(y1 + h1), (x1 + w1):(x1 + w1 + 3)] = 0
 
@@ -263,37 +231,19 @@ class ocrImg2imgDifference(object):
                     x1_1 = x1
                     y1_1 = y1
                     h1_1 = h1
-                    # w1=10
-                    # after_img2[y1:(y1+3), x1:(x1 + w1)] = 0
-                    # after_img2[(y1 + h1):(y1 + h1+3), x1:(x1 + w1)] = 0
-                    #
-                    # after_img2[y1:(y1 + h1), x1:(x1 + 3)] = 0
-                    # after_img2[(y1):(y1 + h1), (x1+w1):(x1+w1 + 3)] = 0
                     count1 = count1 + 1
-                    # break
-                    # cv2.circle(before_img1,[x1,y1],2,[0,0,255],1)
                 if compareList[j][0] == '+':
                     if count2 == 1:
                         countJ2 = j - count1
                     w1 = result2[int(match[i])][0][1][0] - result2[int(match[i])][0][0][0]
                     h1 = int(result2[int(match[i])][0][2][1] - result2[int(match[i])][0][0][1])
                     x1 = int(result2[int(match[i])][0][0][0])  # + (count2) * int(w1 / len2))
-                    # x1 = int(result1[i][0][0][0])
                     y1 = int(result2[int(match[i])][0][0][1])
                     radius = int(w1 / len2)
                     x1_2 = x1
                     y1_2 = y1
                     h1_2 = h1
-
-                    # w1=10
-                    # after_img2[y1:(y1 + 3), x1:(x1 + w1)] = 0
-                    # after_img2[(y1 + h1):(y1 + h1 + 3), x1:(x1 + w1)] = 0
-                    #
-                    # after_img2[y1:(y1 + h1), x1:(x1 + 3)] = 0
-                    # after_img2[(y1):(y1 + h1), (x1 + w1):(x1 + w1 + 3)] = 0
                     count2 = count2 + 1
-                    # break
-                    # cv2.circle(before_img1,[x1,y1],2,[0,0,255],1)
             if count1 != 0:
                 w1 = count1 * radius
                 x1 = x1_1 + countJ1 * radius
@@ -352,7 +302,6 @@ class ocrImg2imgDifference(object):
         return self.result
 
 
-
 class ocrImg2ImgDifference(ocrImg2imgDifference):
     def __init__(self, lang):
         self.reader = easyocr.Reader(lang)
@@ -368,16 +317,29 @@ class ocrImg2ImgDifference(ocrImg2imgDifference):
         return before_img1, after_img2
 
 
-def check():
-    print(time.time())
-    img1 = cv2.imread('a.jpg')
-    # img1 = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    img2 = cv2.imread('b.jpg')
+def check_camera(img_base64, pdf):
+    # img1 = cv2.imread('a2.jpg')
+    # img2 = cv2.imread('b2.jpg')
+    # 解码 base64 字符串为图像数据
+    image_data_1 = base64.b64decode(img_base64)
+    nparr_1 = np.frombuffer(image_data_1, np.uint8)
+    img1 = cv2.imdecode(nparr_1, cv2.IMREAD_COLOR)
+    
+    doc = fitz.open(stream=BytesIO(pdf))
+    page = doc.load_page(0)
+    image = page.get_pixmap(matrix=fitz.Matrix(DPI / 72, DPI / 72))
+    img_array = np.frombuffer(image.samples, dtype=np.uint8).reshape((image.height, image.width, 3))
+    doc.close()
+    img2 = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+
     diff = ocrImg2ImgDifference(['en', 'hu'])
-    before_img1, after_img2 = diff.returnMarkImageImg2img(img1,img2)
-    cv2.imwrite("aa.jpg", before_img1)
-    cv2.imwrite("bb.jpg", after_img2)
-    print(time.time())
+    before_img1, after_img2 = diff.returnMarkImageImg2img(img1, img2)
 
-
-check()
+    _, image_buffer = cv2.imencode('.jpg', before_img1)
+    image_base64_1 = base64.b64encode(image_buffer).decode('utf-8')
+    _, image_buffer = cv2.imencode('.jpg', after_img2)
+    image_base64_2 = base64.b64encode(image_buffer).decode('utf-8')
+    # cv2.imwrite("aa.jpg", before_img1)
+    # cv2.imwrite("bb.jpg", after_img2)
+    
+    return image_base64_1, image_base64_2

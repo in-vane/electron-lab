@@ -13,7 +13,7 @@ import {
 } from 'naive-ui';
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
-import { handleDownload } from '@/utils';
+import { CONST, handleDownload } from '@/utils';
 
 const upload = ref(null);
 const fileList = ref([]);
