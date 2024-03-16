@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue';
 import {
+  NSelect,
   NIcon,
   NButton,
   NUpload,
@@ -13,29 +14,35 @@ import {
 } from 'naive-ui';
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
+import { CONST, handleDownload } from '@/utils';
 
 const upload = ref(null);
 const fileList = ref([]);
 const response = ref('');
 const loading = ref(false);
+const selectedMode = ref(0);
+const options = [
+  { label: '常规模式', value: 0 },
+  { label: '丹麦模式', value: 1 },
+];
 
 const handleChange = (data) => {
   fileList.value = data.fileList;
 };
 
 const handleUpload = () => {
-  if (fileList.value.length < 2) {
-  }
   const formData = new FormData();
   for (const item of fileList.value) {
     formData.append(item.name, item.file);
   }
+  formData.append('selectedMode', selectedMode.value);
   loading.value = true;
   lyla
     .post('/ce', { body: formData })
     .then((res) => {
       console.log(res);
-      response.value = res.json.data;
+      // response.value = res.json.data;
+      handleDownload(res.json.data, 'excel');
     })
     .catch((error) => {})
     .finally(() => {
@@ -52,9 +59,8 @@ const handleUpload = () => {
   <n-space vertical>
     <n-spin :show="loading">
       <n-upload
+        multiple
         ref="upload"
-        accept=".pdf"
-        :max="1"
         :default-upload="false"
         v-model:file-list="fileList"
         @change="handleChange"
@@ -73,11 +79,17 @@ const handleUpload = () => {
           </n-p>
         </n-upload-dragger>
       </n-upload>
-      <n-button @click="handleUpload"> 开始对比 </n-button>
+      <n-space>
+        <n-select v-model:value="selectedMode" :options="options" />
+        <n-button type="primary" @click="handleUpload"> 开始对比 </n-button>
+      </n-space>
     </n-spin>
-    <n-image v-show="response" :src="response" alt="image" width="100%" />
+    <!-- <n-image v-show="response" :src="response" alt="image" width="100%" /> -->
   </n-space>
 </template>
 
 <style scoped>
+.n-select {
+  width: 200px;
+}
 </style>

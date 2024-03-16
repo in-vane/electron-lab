@@ -9,7 +9,9 @@ from skimage.metrics import structural_similarity
 
 
 # 常量
-DPI = 600
+DPI = 300
+# CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
+# IMAGE_PATH = os.path.join(CURRENT_PATH, "image")
 
 
 def img2base64(img):
@@ -24,6 +26,27 @@ def is_vector_page(page):
     print(vector_count)
     # 判断矢量元素数量是否超过阈值
     return vector_count > 1000
+
+
+def pdf2img_single(file):
+    # doc = fitz.open(stream=BytesIO(file))
+    doc = fitz.open('a.pdf')
+    doc_len = len(doc)
+    imgs_base64 = []
+
+    for page_number in range(doc_len):
+        print(page_number)
+        page = doc.load_page(page_number)
+        if is_vector_page(page):
+            img = page.get_pixmap()
+            img_pil = Image.frombytes("RGB", [img.width, img.height], img.samples)
+            grayscale_img = img_pil.convert('L')
+            buffered = BytesIO()
+            grayscale_img.save(buffered, format="PNG")
+            img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+            imgs_base64.append(img_base64)
+    print('===== done =====')
+    return imgs_base64
 
 
 # pdf转图片

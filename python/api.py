@@ -23,6 +23,7 @@ class Application(tornado.web.Application):
             (r'/table', MainHandler),
             (r'/screw', MainHandler),
             (r'/language', MainHandler),
+            (r'/camera', MainHandler),
             (r"/api", ApiHandler),
         ]
         settings = {
@@ -65,31 +66,31 @@ class MainHandler(tornado.web.RequestHandler):
 
         # 路由分发
         if self.request.path == '/ce':
-            image_base64 = tasks.compare_ce(file_list[0],file_list[1])
-            custom_data = {"data": f"{BASE64_IMG}{image_base64}"}
+            xls_base64 = tasks.check_CE_mode_normal(file_list[0], file_list[1])
+            custom_data = {"data": xls_base64}
             pass
 
         elif self.request.path == '/explore/pdf2img':
             data = []
             for file in file_list: 
-                image_base64, image_base64_s = tasks.pdf2img(file)
-                data.append([f"{BASE64_IMG}{image_base64}", f"{BASE64_IMG}{image_base64_s}"])
+                img_base64, image_base64_s = tasks.pdf2img(file)
+                data.append([f"{BASE64_IMG}{img_base64}", f"{BASE64_IMG}{image_base64_s}"])
             custom_data = {"data": data}
             pass
 
         elif self.request.path == '/explore/compare':
-            image_base64 = tasks.compare_explore(arguments[0], arguments[1])
-            custom_data = {"data": f"{BASE64_IMG}{image_base64}"}
+            img_base64 = tasks.compare_explore(arguments[0], arguments[1])
+            custom_data = {"data": f"{BASE64_IMG}{img_base64}"}
             pass
 
         elif self.request.path == '/contours':
-            image_base64 = tasks.check_contours(arguments[0])
-            custom_data = {"data": f"{BASE64_IMG}{image_base64}"}
+            match_results = tasks.check_explore_part(img_base64=arguments[0], pdf=file_list[0], page_number=arguments[1])
+            custom_data = {"match_results": match_results}
             pass
 
         elif self.request.path == '/size':
-            is_error, msg, image_base64 = tasks.compare_size(file_list[0])
-            custom_data = {"data": f"{BASE64_IMG}{image_base64}", "is_error": is_error, "msg": msg}
+            is_error, msg, img_base64 = tasks.compare_size(file_list[0])
+            custom_data = {"data": f"{BASE64_IMG}{img_base64}", "is_error": is_error, "msg": msg}
             pass
 
         elif self.request.path == '/pageNumber':
@@ -110,6 +111,11 @@ class MainHandler(tornado.web.RequestHandler):
         elif self.request.path == '/language':
             is_error, error_language = tasks.check_language(file_list[0])
             custom_data = {"is_error": is_error, "error_language": error_language}
+            pass
+
+        elif self.request.path == '/camera':
+            img_base64_pic, img_base64_doc = tasks.check_camera(img_base64=arguments[0], pdf=file_list[0])
+            custom_data = {"img_base64_pic": f"{BASE64_IMG}{img_base64_pic}", "img_base64_doc": f"{BASE64_IMG}{img_base64_doc}"}
             pass
 
         elif self.request.path == '/other':

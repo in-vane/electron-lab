@@ -59,7 +59,6 @@ const menuOptions = [
       h(RouterLink, { to: { path: '/ce' } }, { default: () => 'CE表对比' }),
     key: 'ce',
     icon: renderIcon(TableIcon),
-    disabled: true,
   },
   {
     label: () =>
@@ -152,7 +151,14 @@ const menuOptions = [
       <n-image :src="agsun" />
     </n-layout-header>
     <n-layout has-sider>
-      <n-layout-sider content-style="padding: 24px;">
+      <n-layout-sider
+        collapse-mode="width"
+        :collapsed-width="96"
+        :width="240"
+        show-trigger="arrow-circle"
+        bordered
+        content-style="padding: 24px;"
+      >
         <n-menu :options="menuOptions" />
       </n-layout-sider>
       <n-layout-content content-style="padding: 24px;">

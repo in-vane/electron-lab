@@ -1,6 +1,8 @@
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue';
 import {
+  NSwitch,
+  NScrollbar,
   NIcon,
   NButton,
   NUpload,
@@ -17,12 +19,17 @@ import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
 import VuePictureCropper, { cropper } from 'vue-picture-cropper';
 import { handleDownload } from '@/utils';
+import bgGray from '@/assets/bgGray.png';
+import testImg from './a2.jpg';
 
 const message = useMessage();
 const fileList = ref([]);
-const images = ref([]);
-const cropend = ref([]);
-const currentImg = ref(0);
+const images = ref([
+  [testImg, testImg, testImg, testImg],
+  [testImg, testImg, testImg, testImg],
+]);
+const cropend = ref([bgGray, bgGray]);
+const current = ref([0, 0]);
 const compared = ref('');
 const upload = ref(null);
 const loadingUpload = ref(false);
@@ -32,13 +39,14 @@ const handleChange = (data) => {
   fileList.value = data.fileList;
 };
 
-const handlePreviewClick = (i) => {
-  currentImg.value = i;
+const handlePreviewClick = (selectedPDF, selectedImg) => {
+  current.value[0] = selectedPDF;
+  current.value[1] = selectedImg;
 };
 
 const handleGetCrop = () => {
   const base64 = cropper.getDataURL();
-  cropend.value[currentImg.value] = base64;
+  cropend.value[current.value[0]] = base64;
 };
 
 const handleUpload = () => {
@@ -97,7 +105,7 @@ const handleCompare = () => {
 
 const handleSaveResult = () => {
   const data = compared.value.split(',')[1];
-  handleDownload(data, 'png');
+  handleDownload(data, 'img');
 };
 
 const handleKeyDownEsc = (e) => {
@@ -117,8 +125,8 @@ onUnmounted(() => {
 
 <template>
   <div>
-    <!-- upload -->
     <n-space vertical>
+      <!-- upload -->
       <n-space justify="space-between">
         <n-h3 prefix="bar">1. 上传PDF</n-h3>
         <n-button type="primary" :ghost="true" @click="handleUpload">
@@ -153,92 +161,104 @@ onUnmounted(() => {
       <!-- preview -->
       <n-spin :show="loadingCompare">
         <div class="box-divider">
-          <div class="box-divider-vertical">
-            <div class="box-divider-item">
-              <n-h3 prefix="bar">2. 单击缩略图以切换选择区域</n-h3>
-              <div
-                :class="`preview-box ${
-                  images.length ? '' : 'preview-box-skeleton'
-                }`"
-              >
-                <n-image
-                  v-for="(img, i) in images"
-                  :key="i"
-                  :src="img[1]"
-                  alt="image"
-                  width="100%"
-                  height="200px"
-                  :preview-disabled="true"
-                  @click="(e) => handlePreviewClick(i)"
-                />
-              </div>
-            </div>
-            <div class="box-divider-item">
-              <n-h3 prefix="bar">3. 选择区域</n-h3>
-              <vue-picture-cropper
-                :boxStyle="{
-                  height: '500px',
-                  border: '1px dashed rgb(224, 224, 230)',
-                  borderRadius: '3px',
-                  background: 'rgb(250, 250, 252)',
-                }"
-                :img="images[currentImg]?.[0]"
-                :options="{
-                  viewMode: 1,
-                  dragMode: 'move',
-                  autoCrop: true,
-                  cropend: handleGetCrop,
-                }"
+          <div class="box-divider-item">
+            <n-h3 prefix="bar">文件1中的图像预览</n-h3>
+            <div class="scroll-box">
+              <n-scrollbar x-scrollable>
+                <div
+                  :class="`preview-box ${
+                    images.length ? '' : 'preview-box-skeleton'
+                  }`"
+                >
+                  <n-image
+                    v-for="(img, i) in images[0]"
+                    :key="i"
+                    :src="img"
+                    alt="image"
+                    height="200px"
+                    @click="(e) => handlePreviewClick(0, i)"
+                  />
+                </div>
+              </n-scrollbar>
+              <n-image
+                :src="cropend[0]"
+                height="120px"
+                width="100%"
+                alt="image"
               />
             </div>
           </div>
-          <div class="box-divider-vertical">
-            <div class="box-divider-item">
-              <n-space justify="space-between">
-                <n-h3 prefix="bar">4. 选中区域预览</n-h3>
-                <n-button type="primary" :ghost="true" @click="handleCompare">
-                  开始对比
-                </n-button>
-              </n-space>
-              <div
-                :class="`preview-box ${
-                  cropend.length ? '' : 'preview-box-skeleton'
-                }`"
-              >
-                <n-image
-                  v-for="(img, i) in cropend"
-                  :key="i"
-                  :src="img"
-                  alt="image"
-                  width="100%"
-                  height="200px"
-                />
-              </div>
-            </div>
-            <div class="box-divider-item">
-              <n-space justify="space-between">
-                <n-h3 prefix="bar">5. 对比结果</n-h3>
-                <n-button
-                  type="primary"
-                  :ghost="true"
-                  @click="handleSaveResult"
+          <div class="box-divider-item">
+            <n-h3 prefix="bar">文件2中的图像预览</n-h3>
+            <div class="scroll-box">
+              <n-scrollbar x-scrollable>
+                <div
+                  :class="`preview-box ${
+                    images.length ? '' : 'preview-box-skeleton'
+                  }`"
                 >
-                  保存结果
-                </n-button>
-              </n-space>
-              <div
-                :class="`preview-box preview-box-result ${
-                  compared ? '' : 'preview-box-skeleton'
-                }`"
-              >
-                <n-image
-                  v-show="compared"
-                  :src="compared"
-                  alt="image"
-                  width="100%"
-                  height="500px"
-                />
-              </div>
+                  <n-image
+                    v-for="(img, i) in images[1]"
+                    :key="i"
+                    :src="img"
+                    alt="image"
+                    height="200px"
+                    @click="(e) => handlePreviewClick(1, i)"
+                  />
+                </div>
+              </n-scrollbar>
+              <n-image
+                :src="cropend[1]"
+                height="120px"
+                width="100%"
+                alt="image"
+              />
+            </div>
+          </div>
+        </div>
+        <div class="box-divider">
+          <div class="box-divider-item">
+            <n-space justify="space-between">
+              <n-h3 prefix="bar">3. 选取对比区域</n-h3>
+              <n-button type="primary" :ghost="true" @click="handleCompare">
+                开始对比
+              </n-button>
+            </n-space>
+            <vue-picture-cropper
+              :boxStyle="{
+                height: '400px',
+                width: '100%',
+                border: '1px dashed rgb(224, 224, 230)',
+                borderRadius: '3px',
+                background: 'rgb(250, 250, 252)',
+              }"
+              :img="images[current[0]][current[1]]"
+              :options="{
+                viewMode: 1,
+                dragMode: 'move',
+                autoCrop: true,
+                cropend: handleGetCrop,
+              }"
+            />
+          </div>
+          <div class="box-divider-item">
+            <n-space justify="space-between">
+              <n-h3 prefix="bar">5. 对比结果</n-h3>
+              <n-button type="primary" :ghost="true" @click="handleSaveResult">
+                保存结果
+              </n-button>
+            </n-space>
+            <div
+              :class="`preview-box preview-box-result ${
+                compared ? '' : 'preview-box-skeleton'
+              }`"
+            >
+              <n-image
+                v-show="compared"
+                :src="compared"
+                alt="image"
+                width="100%"
+              />
             </div>
           </div>
         </div>
@@ -252,28 +272,33 @@ onUnmounted(() => {
   display: flex;
   gap: 24px;
 }
-.box-divider-vertical {
-  width: 50%;
-}
 .box-divider-item {
+  width: calc(50% - 12px);
   margin-top: 32px;
 }
 .preview-box {
   display: flex;
   gap: 12px;
-  min-height: 200px;
   border-radius: 3px;
 }
 .preview-box-skeleton {
   background: rgb(250, 250, 252);
   border: 1px dashed rgb(224, 224, 230);
+  min-height: 120px;
+}
+.scroll-box {
+  display: flex;
+  gap: 12px;
 }
 .preview-box-result {
-  min-height: 500px;
+  min-height: 400px;
 }
 .n-image {
-  border: solid 1px rgb(224, 224, 230);
+  border: 1px dashed rgb(224, 224, 230);
   border-radius: 3px;
+  background: rgb(250, 250, 252);
+  min-width: 150px;
+  min-height: 200px;
 }
 .n-button {
   height: 28px;

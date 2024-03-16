@@ -15,7 +15,7 @@ import {
 } from 'naive-ui';
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
-// import { handleDownload } from '@/utils';
+import { handleDownload } from '@/utils';
 
 const upload = ref(null);
 const fileList = ref([]);
@@ -36,8 +36,8 @@ const handleUpload = () => {
     .post('/screw', { body: formData })
     .then((res) => {
       console.log(res);
-      response.value = res.json.data;
-      // handleDownload(response.value);
+      // response.value = res.json.data;
+      handleDownload(res.json.data, 'excel');
     })
     .catch((error) => {})
     .finally(() => {
@@ -77,7 +77,7 @@ const handleUpload = () => {
         </n-upload-dragger>
       </n-upload>
     </n-spin>
-    <n-h3 v-show="response.length" prefix="bar">检查结果</n-h3>
+    <!-- <n-h3 v-show="response.length" prefix="bar">检查结果</n-h3>
     <n-image-group>
       <n-space>
         <n-image
@@ -88,7 +88,7 @@ const handleUpload = () => {
           height="200px"
         />
       </n-space>
-    </n-image-group>
+    </n-image-group> -->
   </n-space>
 </template>
 

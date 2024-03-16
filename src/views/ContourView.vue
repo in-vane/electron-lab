@@ -1,6 +1,9 @@
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue';
 import {
+  NForm,
+  NFormItem,
+  NInputNumber,
   NIcon,
   NButton,
   NUpload,
@@ -20,11 +23,13 @@ import VuePictureCropper, { cropper } from 'vue-picture-cropper';
 const message = useMessage();
 const fileList = ref([]);
 const images = ref([]);
+const matchResults = ref([]);
 const cropend = ref(null);
 const compared = ref(null);
 const upload = ref(null);
 const loadingUpload = ref(false);
 const loadingCompare = ref(false);
+const pageNumber = ref(0);
 
 const handleChange = (data) => {
   fileList.value = data.fileList;
@@ -51,7 +56,9 @@ const handleUpload = () => {
       console.log(res);
       images.value = res.json.data[0];
     })
-    .catch((error) => {})
+    .catch((error) => {
+      console.log(error);
+    })
     .finally(() => {
       loadingUpload.value = false;
       window.scrollTo({
@@ -63,14 +70,21 @@ const handleUpload = () => {
 
 const handleCheckContours = () => {
   const formData = new FormData();
-  formData.append('file_0', cropend.value);
+  for (const item of fileList.value) {
+    formData.append(item.name, item.file);
+  }
+  formData.append('img_base64', cropend.value);
+  formData.append('pageNumber', pageNumber.value);
+
+  console.log(formData);
 
   loadingCompare.value = true;
   lyla
     .post('/contours', { body: formData })
     .then((res) => {
       console.log(res);
-      compared.value = res.json.data;
+      // compared.value = res.json.data;
+      matchResults.value = res.json.match_results;
     })
     .catch((error) => {})
     .finally(() => {
@@ -95,6 +109,28 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDownEsc);
 });
+
+const test = [
+  ['1', false, 11, [1]],
+  ['10', false, 0, [1]],
+  ['11', true, null, null],
+  ['12', true, null, null],
+  ['14', true, null, null],
+  ['13', false, 1, [4]],
+  ['27', true, null, null],
+  ['26', true, null, null],
+  ['25', true, null, null],
+  ['23', true, null, null],
+  ['24', true, null, null],
+  ['22', true, null, null],
+  ['21', true, null, null],
+  ['20', false, 18, [1]],
+  ['19', true, null, null],
+  ['18', true, null, null],
+  ['17', false, 0, [1]],
+  ['15', false, 1, [2]],
+  ['16', false, 0, [1]],
+];
 </script>
 
 <template>
@@ -132,9 +168,13 @@ onUnmounted(() => {
       <n-spin :show="loadingCompare">
         <n-space justify="space-between">
           <n-h3 prefix="bar">2. 选取爆炸图</n-h3>
-          <n-button type="primary" @click="handleCheckContours">
-            开始检测
-          </n-button>
+          <n-space>
+            <span>爆炸图所在页</span>
+            <n-input-number v-model:value="pageNumber" />
+            <n-button type="primary" @click="handleCheckContours">
+              开始检测
+            </n-button>
+          </n-space>
         </n-space>
         <div class="box-divider-item">
           <vue-picture-cropper
@@ -153,9 +193,9 @@ onUnmounted(() => {
             }"
           />
         </div>
-        <n-h3 prefix="bar">3. 边缘检测结果</n-h3>
+        <n-h3 prefix="bar">3. 零件计数检测结果</n-h3>
         <div class="box-divider-item">
-          <div
+          <!-- <div
             :class="`preview-box preview-box-result ${
               compared ? '' : 'preview-box-skeleton'
             }`"
@@ -167,7 +207,17 @@ onUnmounted(() => {
               width="100%"
               height="500px"
             />
-          </div>
+          </div> -->
+          <n-space vertical>
+            <div v-for="(item, i) in matchResults" :key="i">
+              <n-space>
+                <span>序号: {{ item[0] }}</span>
+                <span>{{ item[1]? '正确': '错误' }}</span>
+                <span v-if="!item[1]">检测到 {{ item[2] }} 个</span>
+                <span v-if="!item[1]">明细表显示 {{ item[3][0] }} 个</span>
+              </n-space>
+            </div>
+          </n-space>
         </div>
       </n-spin>
     </n-space>
@@ -209,6 +259,6 @@ onUnmounted(() => {
   border-radius: 3px;
 }
 .n-button {
-  height: 28px;
+  /* height: 28px; */
 }
 </style>

@@ -29,5 +29,6 @@ dist-electron
 dist-python
 build
 **/__pycache__
+**/all-MiniLM-L6-v2
 
 *.tsbuildinfo

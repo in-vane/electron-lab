@@ -1,14 +1,12 @@
-# vue-project
+# Electron-Lab
 
-This template should help get you started developing with Vue 3 in Vite.
+An electron-app developed by Vue3 and Python3.
 
-## Recommended IDE Setup
-
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur) + [TypeScript Vue Plugin (Volar)](https://marketplace.visualstudio.com/items?itemName=Vue.vscode-typescript-vue-plugin).
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vitejs.dev/config/).
+## Tech Stack 
+- UI: Naive-UI
+- request: lylajs
+- store: pinia
+- cropper: vue-picture-cropper
 
 ## Project Setup
 
@@ -23,7 +21,7 @@ npm run dev
 ```
 
 ### Compile and Minify for Production
-
+> Having sm problem in macOS, maybe sth err in code.
 ```sh
-npm run build
+npm run electron:build
 ```
