@@ -8,25 +8,25 @@ from io import BytesIO
 import cv2
 import fitz
 import pandas as pd
-from PIL import Image
 from tabula import read_pdf
 from collections import defaultdict
 from ppocronnx.predict_system import TextSystem
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Side, Font
-
-
+import win32com.client as win32
+from PIL import ImageGrab
 
 CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
 PDF_PATH = os.path.join(CURRENT_PATH, "temp.pdf")
 IMAGE_PATH = os.path.join(CURRENT_PATH, "image")
 CSV_PATH = os.path.join(CURRENT_PATH, "selected_table.csv")
 EXCEL_PATH = os.path.join(CURRENT_PATH, "result.xlsx")
+PNG_PATH = os.path.join(CURRENT_PATH, 'temp.png')
 
 
 def find_target_table(doc):
     total_pages = len(doc)  # 获取PDF的总页数
-    
+
     # 遍历每一页
     for page_num in range(1, total_pages + 1):
         # 使用tabula读取当前页的表格
@@ -35,7 +35,7 @@ def find_target_table(doc):
         for df in df_list:
             # 检查表头和内容是否符合预期
             if all(x in df.columns for x in ['A', 'B', 'C']) and 'x' in ''.join(df.iloc[:, 1].astype(str)):
-                df.to_csv(CSV_PATH, index=False) # 找到符合条件的表格，保存为CSV文件
+                df.to_csv(CSV_PATH, index=False)  # 找到符合条件的表格，保存为CSV文件
                 return page_num
 
 
@@ -86,7 +86,6 @@ def read_csv_to_dict():
                 cleaned_numbers.append(int(match.group(0)))
             else:
                 cleaned_numbers.append(0)  # 如果没有找到数字，使用0作为默认值
-
 
         # 将字符和数字对应存储到字典中
         result_dict = dict(zip(characters, cleaned_numbers))
@@ -206,9 +205,9 @@ def get_step_screw(doc):
     # 提取步骤下方的图像
     extracted_images = extract_images_below_steps(doc)
     extracted_images = recognize_text_in_images(extracted_images)
-    letter_counts,letter_count,letter_pageNumber = get_image_text(extracted_images)
+    letter_counts, letter_count, letter_pageNumber = get_image_text(extracted_images)
 
-    return letter_counts,letter_count,letter_pageNumber
+    return letter_counts, letter_count, letter_pageNumber
 
 
 def check_total_and_step(doc):
@@ -216,7 +215,7 @@ def check_total_and_step(doc):
     extra_chars = {}  # 多余的字符
     missing_chars = {}  # 缺少的字符
     result_dict, page_num = get_total_screw(doc)
-    letter_counts,letter_count,letter_pageNumber = get_step_screw(doc)
+    letter_counts, letter_count, letter_pageNumber = get_step_screw(doc)
 
     # 检查两个字典中的数量是否匹配
     for key in letter_counts:
@@ -379,32 +378,71 @@ def create_styled_excel(result_dict, count_mismatch, letter_count, letter_pageNu
                     cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
                     cell.alignment = align_center
         # 保存文件
-
         # wb.save(EXCEL_PATH)
         return wb
 
+
+# 将excel转化为图片
+def export_excel_range_to_image(excel_path, image_path, sheet_name):
+    """
+    导出Excel文件中指定工作表的特定范围为图片。
+
+    参数:
+    - excel_path: Excel文件的路径。
+    - image_path: 生成的图片保存路径。
+    - sheet_name: 工作表
+    """
+    range_string = "A1:G15"
+    # 确保Excel应用程序不可见以加快处理速度
+    excel = win32.gencache.EnsureDispatch('Excel.Application')
+    excel.Visible = False
+    try:
+        # 打开工作簿
+        wb = excel.Workbooks.Open(os.path.abspath(excel_path))
+        sheet = wb.Sheets(sheet_name)
+        # 选择并复制指定范围
+        sheet.Range(range_string).CopyPicture(Appearance=1, Format=2)
+        # 从剪贴板获取图像
+        image = ImageGrab.grabclipboard()
+        # 检查剪贴板上是否有图像并保存
+        if image:
+            image.save(image_path, 'PNG')
+            print(f"图片已保存到 {image_path}")
+        else:
+            print("剪贴板上没有图像。")
+    except Exception as e:
+        print(f"发生错误：{e}")
+    finally:
+        # 关闭工作簿和Excel应用程序
+        wb.Close(SaveChanges=False)
+        excel.Quit()
+
+
 # 主函数
 def check_screw(file):
+    work_table = 'Sheet'
+    # doc = fitz.open(file)
     doc = fitz.open(stream=BytesIO(file))
     doc.save(PDF_PATH)
     if not os.path.isdir(IMAGE_PATH):
         os.makedirs(IMAGE_PATH)
 
-    count_mismatch, extra_chars, missing_chars, page_num,letter_count,letter_pageNumber,result_dict = check_total_and_step(doc)
+    count_mismatch, extra_chars, missing_chars, page_num, letter_count, letter_pageNumber, result_dict = check_total_and_step(
+        doc)
 
     # annotations = {}
     print(f"count_mismatch = {count_mismatch}")
 
     # print(annotations)
     wb = create_styled_excel(result_dict, count_mismatch, letter_count, letter_pageNumber)
-    # 将文档转换成字节流
-    # doc_bytes = doc.write()
-    # 将字节流进行base64编码
-    # doc_base64 = base64.b64encode(doc_bytes).decode('utf-8')
+    wb.save(EXCEL_PATH)
+    # 将excel转化为图片，保存到PNG_PATG
+    export_excel_range_to_image(EXCEL_PATH, PNG_PATH, work_table)
 
     doc.close()
     os.remove(CSV_PATH)
     os.remove(PDF_PATH)
+
     shutil.rmtree(IMAGE_PATH)
     # 使用 BytesIO 读取 Excel 文件内容并进行base64编码
     # with open(EXCEL_PATH, 'rb') as excel_file:
@@ -413,16 +451,28 @@ def check_screw(file):
 
     # os.remove(EXCEL_PATH)
 
-    
     # 创建一个内存中的二进制文件对象
-    excel_buffer = BytesIO()
+    # excel_buffer = BytesIO()
     # 保存 Excel 文件到二进制对象中
-    wb.save(excel_buffer)
+    # wb.save(excel_buffer)
     # 将文件指针移至开头
-    excel_buffer.seek(0)
+    # excel_buffer.seek(0)
     # 将二进制数据编码为 Base64 字符串
-    excel_base64 = base64.b64encode(excel_buffer.getvalue()).decode('utf-8')
+    # excel_base64 = base64.b64encode(excel_buffer.getvalue()).decode('utf-8')
+    # 将PNG图片加载为二进制流
+    with open(PNG_PATH, "rb") as image_file:
+        image_data = image_file.read()
+    # 将二进制流编码为Base64字符串
+    base64_encoded_data = base64.b64encode(image_data)
 
-    return excel_base64
-    
+    # 将Base64字节对象转换为字符串
+    image_base64 = base64_encoded_data.decode('utf-8')
+    print(image_base64)
+    os.remove(EXCEL_PATH)
+    os.remove(PNG_PATH)
+
+    return image_base64
+
     # return doc_base64
+# 测试后端接口,打开425行代码,并且打开下面一行代码，传入测试文件
+# check_screw('1.pdf')
