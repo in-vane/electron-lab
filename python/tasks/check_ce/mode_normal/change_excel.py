@@ -5,12 +5,15 @@ from io import BytesIO
 import fitz
 import openpyxl
 from openpyxl.styles import Border, Side
-from PIL import Image, ImageDraw
+import win32com.client as win32
+from PIL import ImageGrab
+import os
 
 from .get_table_message import all
 
 CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
 EXCEL_PATH = os.path.join(CURRENT_PATH, "temp.xlsx")
+IMAGE_PATH = os.path.join(CURRENT_PATH, 'temp.png')
 
 
 def change_excel(wb, work_table, message_dict):
@@ -61,24 +64,39 @@ def change_excel(wb, work_table, message_dict):
     # wb.save(EXCEL_PATH)
 
 
-def sheet_to_image(excel_file, sheet_name, output_image):
-    # 加载 Excel 文件
-    wb = load_workbook(excel_file)
-    # 选择指定名称的工作表
-    ws = wb[sheet_name]
-    # 创建一个空白图像对象
-    img = Image.new('RGB', (1000, 600), color='white')
-    # 获取图像对象的绘图板
-    draw = ImageDraw.Draw(img)
+# 将ecxel转化为图片
+def export_excel_range_to_image(excel_path, image_path, sheet_name):
+    """
+    导出Excel文件中指定工作表的特定范围为图片。
 
-    # 将工作表中的内容绘制到图像上
-    for row in ws.iter_rows():
-        for cell in row:
-            # 在图像上绘制单元格内容
-            draw.text((cell.column * 50, cell.row * 20), str(cell.value), fill='black')
-
-    # 保存图像到文件
-    img.save(output_image)
+    参数:
+    - excel_path: Excel文件的路径。
+    - image_path: 生成的图片保存路径。
+    """
+    range_string = "A1:H24"
+    # 确保Excel应用程序不可见以加快处理速度
+    excel = win32.gencache.EnsureDispatch('Excel.Application')
+    excel.Visible = False
+    try:
+        # 打开工作簿
+        wb = excel.Workbooks.Open(os.path.abspath(excel_path))
+        sheet = wb.Sheets(sheet_name)
+        # 选择并复制指定范围
+        sheet.Range(range_string).CopyPicture(Appearance=1, Format=2)
+        # 从剪贴板获取图像
+        image = ImageGrab.grabclipboard()
+        # 检查剪贴板上是否有图像并保存
+        if image:
+            image.save(image_path, 'PNG')
+            print(f"图片已保存到 {image_path}")
+        else:
+            print("剪贴板上没有图像。")
+    except Exception as e:
+        print(f"发生错误：{e}")
+    finally:
+        # 关闭工作簿和Excel应用程序
+        wb.Close(SaveChanges=False)
+        excel.Quit()
 
 
 def checkTags(excel_file, pdf_file):
@@ -87,26 +105,34 @@ def checkTags(excel_file, pdf_file):
     # wb = openpyxl.load_workbook(excel_file)
     doc = fitz.open(stream=BytesIO(pdf_file))
     wb = openpyxl.load_workbook(filename=BytesIO(excel_file))
-    # wb.save(EXCEL_PATH)
+    wb.save(EXCEL_PATH)
     message_dict = all(wb, work_table, doc)
     change_excel(wb, work_table, message_dict)
-
-    # # 将文档转换成字节流
-    # wb_bytes = wb.write()
-    # # 将字节流进行base64编码
-    # wb_base64 = base64.b64encode(wb_bytes).decode('utf-8')
+    # 将excel转化为图片，保存到IMAGE_PATG
+    export_excel_range_to_image(EXCEL_PATH, IMAGE_PATH, work_table)
 
     # 创建一个内存中的二进制文件对象
-    excel_buffer = BytesIO()
+    # excel_buffer = BytesIO()
     # 保存 Excel 文件到二进制对象中
-    wb.save(excel_buffer)
+    # wb.save(excel_buffer)
     # 将文件指针移至开头
-    excel_buffer.seek(0)
+    # excel_buffer.seek(0)
     # 将二进制数据编码为 Base64 字符串
-    excel_base64 = base64.b64encode(excel_buffer.getvalue()).decode('utf-8')
+    # excel_base64 = base64.b64encode(excel_buffer.getvalue()).decode('utf-8')
+    # 将PNG图片加载为二进制流
+    with open(IMAGE_PATH, "rb") as image_file:
+        image_data = image_file.read()
+    # 将二进制流编码为Base64字符串
+    base64_encoded_data = base64.b64encode(image_data)
 
-    # os.remove(EXCEL_PATH)
+    # 将Base64字节对象转换为字符串
+    image_base64 = base64_encoded_data.decode('utf-8')
+    print(image_base64)
+    os.remove(EXCEL_PATH)
     # Close the workbook
     # wb.close()
-    
-    return excel_base64
+
+    return image_base64
+
+
+# checkTags('2.xlsx','2.pdf')
