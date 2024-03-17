@@ -72,6 +72,7 @@ def export_excel_range_to_image(excel_path, image_path, sheet_name):
     参数:
     - excel_path: Excel文件的路径。
     - image_path: 生成的图片保存路径。
+    - sheet_name: 工作表
     """
     range_string = "A1:H24"
     # 确保Excel应用程序不可见以加快处理速度
@@ -129,6 +130,7 @@ def checkTags(excel_file, pdf_file):
     image_base64 = base64_encoded_data.decode('utf-8')
     print(image_base64)
     os.remove(EXCEL_PATH)
+    os.remove(IMAGE_PATH)
     # Close the workbook
     # wb.close()
 
