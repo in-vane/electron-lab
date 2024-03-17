@@ -5,25 +5,18 @@ from io import BytesIO
 
 import fitz
 import pandas as pd
-from PIL import Image
-from pathlib import Path
 from tabula import read_pdf
 
-import torch
-from torch.utils.data import Dataset, DataLoader
-from torch.nn import Linear
-from torchvision import transforms
-from torchvision.models import resnet18
 
 CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
 PDF_PATH = os.path.join(CURRENT_PATH, "temp.pdf")
-IMAGE_PATH = os.path.join(CURRENT_PATH, "image")
-MODEL_PATH = os.path.join(CURRENT_PATH, "model.pth")
+# IMAGE_PATH = os.path.join(CURRENT_PATH, "image")
+# MODEL_PATH = os.path.join(CURRENT_PATH, "model.pth")
 CSV_PATH = os.path.join(CURRENT_PATH, "exact_table.csv")
 SUCCESS = 0
 ERROR_NO_EXPLORED_VIEW = 1
 
-
+"""
 # 预测爆炸图的二分模型
 class SimpleImageDataset(Dataset):
     def __init__(self, directory, transform=None):
@@ -41,7 +34,7 @@ class SimpleImageDataset(Dataset):
         if self.transform:
             image = self.transform(image)
         return image
-
+"""
 
 # 对表格进行预处理，以纠正列名
 def process_table(table):
@@ -83,8 +76,9 @@ def read_and_filter_tables(page_number):
 
     return filtered_tables
 
-
+"""
 # pdf转图片
+
 def get_image(doc):
     # 确保输出目录存在
     if not os.path.isdir(IMAGE_PATH):
@@ -96,7 +90,6 @@ def get_image(doc):
         pix = page.get_pixmap()  # 将页面转换为像素图
         output_image_path = os.path.join(IMAGE_PATH, f"page_{page_num + 1}.png")
         pix.save(output_image_path)  # 保存图像
-
 
 # 预测是否为爆炸图
 def predict():
@@ -131,7 +124,7 @@ def predict():
                 result[page_number] = img_name
 
     return result
-
+"""
 
 # 标注错误
 def add_annotation_with_fitz(doc, annotations):
@@ -250,31 +243,32 @@ def find_matching_table(doc, exact_pagenumber, table_character, ):
 
 
 # 主函数
-def compare_table(file):
+def compare_table(file, page_number):
     # 打开PDF文件
+    # doc =fitz.open(file)
     doc = fitz.open(stream=BytesIO(file))
     doc.save(PDF_PATH)
 
     # 从PDF中获取图像
-    get_image(doc)
+    # get_image(doc)
 
     # 使用模型预测图像，获取页号
-    result = predict()
-    if len(result) == 0:
-        print("模型没预测出有爆炸图")
-        return ERROR_NO_EXPLORED_VIEW
+    # result = predict()
+    #if len(result) == 0:
+    #    print("模型没预测出有爆炸图")
+    #    return ERROR_NO_EXPLORED_VIEW
 
-    page_number = list(result.keys())[0]
+    # page_number = list(result.keys())[0]
 
     # 获取标准表格
     filtered_tables = read_and_filter_tables(page_number)
     if filtered_tables:
-        print("爆炸图和表格在同一页")
+        print("在该页找到标准表格了")
     else:
-        print("爆炸图和表格不在同一页")
-        page_number = int(page_number) + 1
-        page_number = str(page_number)
-        filtered_tables = read_and_filter_tables(page_number)
+        print("在该页没找到标准表格了")
+        # page_number = int(page_number) + 1
+        # page_number = str(page_number)
+        # filtered_tables = read_and_filter_tables(page_number)
 
     # 假设 filtered_tables 是之前从 PDF 中提取并筛选出的表格列表
     # 下面的代码会遍历这些表格，打印出它们的行数和列数，并将它们存储为 CSV 文件
@@ -287,11 +281,11 @@ def compare_table(file):
         table_character.append(table.shape[1])
         table.to_csv(CSV_PATH, index=False)
 
-    exact_pagenumber = None  # 替换为起始页码
-    for key in result.keys():
-        exact_pagenumber = int(key)
+    # exact_pagenumber = None  # 替换为起始页码
+    # for key in result.keys():
+    #    exact_pagenumber = int(key)
 
-    error_pages = find_matching_table(doc, exact_pagenumber, table_character)
+    error_pages = find_matching_table(doc, page_number, table_character)
 
     # 将文档转换成字节流
     doc_bytes = doc.write()
@@ -300,6 +294,9 @@ def compare_table(file):
 
     doc.close()
     os.remove(PDF_PATH)
-    shutil.rmtree(IMAGE_PATH)
+    os.remove(CSV_PATH)
+    # shutil.rmtree(IMAGE_PATH)
 
     return doc_base64, error_pages
+# 测试接口
+# compare_table('1.pdf',2)
