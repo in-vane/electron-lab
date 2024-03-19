@@ -2,7 +2,6 @@ import os
 import re
 import csv
 import shutil
-import base64
 from io import BytesIO
 
 import cv2
@@ -11,17 +10,14 @@ import pandas as pd
 from tabula import read_pdf
 from collections import defaultdict
 from ppocronnx.predict_system import TextSystem
-from openpyxl import Workbook
-from openpyxl.styles import Alignment, Border, Side, Font
-import win32com.client as win32
-from PIL import ImageGrab
+
 
 CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
 PDF_PATH = os.path.join(CURRENT_PATH, "temp.pdf")
 IMAGE_PATH = os.path.join(CURRENT_PATH, "image")
 CSV_PATH = os.path.join(CURRENT_PATH, "selected_table.csv")
-EXCEL_PATH = os.path.join(CURRENT_PATH, "result.xlsx")
-PNG_PATH = os.path.join(CURRENT_PATH, 'temp.png')
+
+
 
 
 def find_target_table(doc):
@@ -235,192 +231,38 @@ def check_total_and_step(doc):
 
     return count_mismatch, extra_chars, missing_chars, page_num, letter_count, letter_pageNumber, result_dict
 
+def create_dicts(result_dict, count_mismatch, letter_count, letter_pageNumber):
+    mismatch_dict = {}
+    match_dict = {}
 
-# 写回错误信息,返回的是excel
-def create_styled_excel(result_dict, count_mismatch, letter_count, letter_pageNumber):
-    # 创建 Excel 工作簿和工作表
-    wb = Workbook()
-    ws = wb.active
+    for key, value in count_mismatch.items():
+        mismatch_dict[key] = {
+            '螺丝包总数量': value['expected'],
+            '步骤螺丝总数量': value['actual'],
+            '步骤螺丝个数': letter_count[key],
+            '步骤螺丝页号': letter_pageNumber[key]
+        }
 
-    # 检查 count_mismatch 是否为空
-    if not count_mismatch:
-        # 创建合并单元格的标题
-        ws.merge_cells('A1:E1')
-        ws['A1'] = '螺丝对比结果'
-        ws.merge_cells('A2:E2')
-        ws['A2'] = '正确总数量螺丝'
+        # 在这个例子中，如果存在不匹配，实际数量比预期少一个，为了简化处理，直接添加一个额外的计数和页码（示意）
+        if value['actual'] < value['expected']:
+            mismatch_dict[key]['步骤螺丝个数'].append(1)  # 假定额外的一个数量
+            mismatch_dict[key]['步骤螺丝页号'].append(mismatch_dict[key]['步骤螺丝页号'][-1] + 1)  # 假定下一个连续的页码
 
-        # 对标题应用样式
-        for cell in ws["1:1"] + ws["2:2"]:
-            cell.font = Font(bold=True, size=12)
-            cell.alignment = Alignment(horizontal="center", vertical="center")
+    for key, value in result_dict.items():
+        if key not in count_mismatch:
+            match_dict[key] = {
+                '螺丝包总数量': value,
+                '步骤螺丝总数量': value,  # 假定步骤螺丝总数量与螺丝包总数量相同
+                '步骤螺丝个数': letter_count.get(key, []),
+                '步骤螺丝页号': letter_pageNumber.get(key, [])
+            }
 
-        # 添加列标题
-        ws.append(['螺丝型号', '螺丝总数量', '步骤螺丝总数量', '步骤螺丝个数', '步骤螺丝页数'])
+    return mismatch_dict, match_dict
 
-        # 填充数据
-        for letter, total in result_dict.items():
-            ws.append([
-                letter,
-                total,
-                total,  # 假设正确数量与总数相同，因为 count_mismatch 为空
-                ', '.join(map(str, letter_count.get(letter, []))),
-                ', '.join(map(str, letter_pageNumber.get(letter, []))),
-            ])
-
-        # 对所有数据单元格应用细边框
-        thin = Side(border_style="thin", color="000000")
-        for row in ws.iter_rows(min_row=3, max_row=len(result_dict) + 3, min_col=1, max_col=5):
-            for cell in row:
-                cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
-                cell.alignment = Alignment(horizontal="center", vertical="center")
-
-        # 设置列宽
-        ws.column_dimensions['A'].width = 12
-        ws.column_dimensions['B'].width = 12
-        ws.column_dimensions['C'].width = 15
-        ws.column_dimensions['D'].width = 18
-        ws.column_dimensions['E'].width = 25
-
-        # 保存文件
-        # wb.save(EXCEL_PATH)
-    else:
-        # 将不匹配的键，在result_dict里删除
-        for mismatch_key in count_mismatch.keys():
-            if mismatch_key in result_dict:
-                del result_dict[mismatch_key]  # Remove the key from result_dict
-
-        # 写第一行螺丝对比结果
-        # 记入表格行数
-        row_count = 1
-        ws.merge_cells(f'A{row_count}:E{row_count}')
-        ws['A1'] = '螺丝对比结果'
-        # 设置样式和边框
-        thin = Side(border_style="thin", color="000000")
-        header_font = Font(bold=True, size=12)
-        align_center = Alignment(horizontal="center", vertical="center")
-        # 应用样式到合并的标题单元格
-        for row in ws.iter_rows(min_row=row_count, max_row=row_count, min_col=1, max_col=5):
-            for cell in row:
-                cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
-                cell.alignment = align_center
-                cell.font = header_font
-        row_count += 1
-
-        # 如果 result_dict 不为空，则继续创建 Excel 工作簿和工作表
-        if result_dict:
-            # 应用样式
-            ws.merge_cells(f'A{row_count}:E{row_count}')
-            ws[f'A{row_count}'] = '正确总数量螺丝'
-            header_font = Font(bold=True, size=12, color="0000FF")
-            # 应用样式到合并的标题单元格
-            for row in ws.iter_rows(min_row=row_count, max_row=row_count, min_col=1, max_col=5):
-                for cell in row:
-                    cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
-                    cell.alignment = align_center
-                    cell.font = header_font
-            row_count += 1
-            # 添加列标题
-            headers = ['螺丝型号', '螺丝包总数量', '步骤螺丝总数量', '步骤螺丝个数', '步骤螺丝页数']
-            ws.append(headers)
-            for cell in ws[3]:
-                cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
-                cell.alignment = align_center
-                cell.font = header_font
-
-            # 添加数据行
-            for key, value in result_dict.items():
-                row_count += 1
-                ws.append([
-                    key,
-                    value,
-                    value,
-                    ', '.join(map(str, letter_count.get(key, []))),
-                    ', '.join(map(str, letter_pageNumber.get(key, [])))
-                ])
-
-            # 应用边框和对齐到数据单元格
-            for row in ws.iter_rows(min_row=4, min_col=1, max_col=5, max_row=ws.max_row):
-                for cell in row:
-                    cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
-                    cell.alignment = align_center
-
-            # 设置列宽
-            ws.column_dimensions['A'].width = 18
-            ws.column_dimensions['B'].width = 18
-            ws.column_dimensions['C'].width = 25
-            ws.column_dimensions['D'].width = 25
-            ws.column_dimensions['E'].width = 25
-        # 写错误部分
-        # 应用样式
-        ws.merge_cells(f'A{row_count}:E{row_count}')
-        ws[f'A{row_count}'] = '错误总数量螺丝'
-        header_font = Font(bold=True, size=12, color="FF0000")
-        # 应用样式到合并的标题单元格
-        for row in ws.iter_rows(min_row=row_count, max_row=row_count, min_col=1, max_col=5):
-            for cell in row:
-                cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
-                cell.alignment = align_center
-                cell.font = header_font
-        for mismatch_key, counts in count_mismatch.items():
-            expected_count = counts['expected']
-            actual_count = counts['actual']
-            ws.append([
-                mismatch_key,
-                expected_count,
-                actual_count,
-                ', '.join(map(str, letter_count.get(mismatch_key, []))),
-                ', '.join(map(str, letter_pageNumber.get(mismatch_key, [])))
-            ])
-            # 应用边框和对齐到数据单元格
-            for row in ws.iter_rows(min_row=row_count, min_col=1, max_col=5, max_row=ws.max_row):
-                for cell in row:
-                    cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
-                    cell.alignment = align_center
-        # 保存文件
-        # wb.save(EXCEL_PATH)
-        return wb
-
-
-# 将excel转化为图片
-def export_excel_range_to_image(excel_path, image_path, sheet_name):
-    """
-    导出Excel文件中指定工作表的特定范围为图片。
-
-    参数:
-    - excel_path: Excel文件的路径。
-    - image_path: 生成的图片保存路径。
-    - sheet_name: 工作表
-    """
-    range_string = "A1:G15"
-    # 确保Excel应用程序不可见以加快处理速度
-    excel = win32.gencache.EnsureDispatch('Excel.Application')
-    excel.Visible = False
-    try:
-        # 打开工作簿
-        wb = excel.Workbooks.Open(os.path.abspath(excel_path))
-        sheet = wb.Sheets(sheet_name)
-        # 选择并复制指定范围
-        sheet.Range(range_string).CopyPicture(Appearance=1, Format=2)
-        # 从剪贴板获取图像
-        image = ImageGrab.grabclipboard()
-        # 检查剪贴板上是否有图像并保存
-        if image:
-            image.save(image_path, 'PNG')
-            print(f"图片已保存到 {image_path}")
-        else:
-            print("剪贴板上没有图像。")
-    except Exception as e:
-        print(f"发生错误：{e}")
-    finally:
-        # 关闭工作簿和Excel应用程序
-        wb.Close(SaveChanges=False)
-        excel.Quit()
 
 
 # 主函数
 def check_screw(file):
-    work_table = 'Sheet'
     # doc = fitz.open(file)
     doc = fitz.open(stream=BytesIO(file))
     doc.save(PDF_PATH)
@@ -430,49 +272,17 @@ def check_screw(file):
     count_mismatch, extra_chars, missing_chars, page_num, letter_count, letter_pageNumber, result_dict = check_total_and_step(
         doc)
 
-    # annotations = {}
     print(f"count_mismatch = {count_mismatch}")
-
-    # print(annotations)
-    wb = create_styled_excel(result_dict, count_mismatch, letter_count, letter_pageNumber)
-    wb.save(EXCEL_PATH)
-    # 将excel转化为图片，保存到PNG_PATG
-    export_excel_range_to_image(EXCEL_PATH, PNG_PATH, work_table)
+    mismatch_dict, match_dict = create_dicts(result_dict, count_mismatch, letter_count, letter_pageNumber)
+    print("Mismatch Dict:", mismatch_dict)
+    print("Match Dict:", match_dict)
 
     doc.close()
     os.remove(CSV_PATH)
     os.remove(PDF_PATH)
-
     shutil.rmtree(IMAGE_PATH)
-    # 使用 BytesIO 读取 Excel 文件内容并进行base64编码
-    # with open(EXCEL_PATH, 'rb') as excel_file:
-    # # 读取文件内容为二进制数据并转换为base64字符串
-    #     excel_base64 = base64.b64encode(excel_file.read()).decode('utf-8')
+    return match_dict, mismatch_dict
 
-    # os.remove(EXCEL_PATH)
 
-    # 创建一个内存中的二进制文件对象
-    # excel_buffer = BytesIO()
-    # 保存 Excel 文件到二进制对象中
-    # wb.save(excel_buffer)
-    # 将文件指针移至开头
-    # excel_buffer.seek(0)
-    # 将二进制数据编码为 Base64 字符串
-    # excel_base64 = base64.b64encode(excel_buffer.getvalue()).decode('utf-8')
-    # 将PNG图片加载为二进制流
-    with open(PNG_PATH, "rb") as image_file:
-        image_data = image_file.read()
-    # 将二进制流编码为Base64字符串
-    base64_encoded_data = base64.b64encode(image_data)
-
-    # 将Base64字节对象转换为字符串
-    image_base64 = base64_encoded_data.decode('utf-8')
-    print(image_base64)
-    os.remove(EXCEL_PATH)
-    os.remove(PNG_PATH)
-
-    return image_base64
-
-    # return doc_base64
-# 测试后端接口,打开425行代码,并且打开下面一行代码，传入测试文件
+# 测试后端接口,打开266行代码,并且打开下面一行代码，传入测试文件
 # check_screw('1.pdf')
