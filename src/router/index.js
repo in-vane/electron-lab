@@ -19,8 +19,8 @@ const router = createRouter({
       component: () => import('../views/CEView.vue'),
     },
     {
-      path: '/explored',
-      name: 'explored',
+      path: '/explore',
+      name: 'explore',
       component: () => import('../views/ExploreView.vue'),
     },
     {

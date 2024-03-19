@@ -5,8 +5,9 @@ import tornado.web
 import tornado.websocket
 import tornado.options
 import tornado.ioloop
+
 import tasks
-import time
+from utils import PdfAssembler
 
 BASE64_IMG = 'data:image/jpeg;base64,'
 
@@ -70,6 +71,11 @@ class MainHandler(tornado.web.RequestHandler):
             custom_data = {"data": xls_base64}
             pass
 
+        elif self.request.path == '/explore/pdf2img_single':
+            imgs_path = tasks.pdf2img_single(file_list[0])
+            custom_data = {"data": imgs_path}
+            pass
+
         elif self.request.path == '/explore/pdf2img':
             data = []
             for file in file_list: 
@@ -109,8 +115,13 @@ class MainHandler(tornado.web.RequestHandler):
             pass
 
         elif self.request.path == '/language':
-            is_error, error_language = tasks.check_language(file_list[0])
-            custom_data = {"is_error": is_error, "error_language": error_language}
+            is_error, language_page, matched, mismatched = tasks.check_language(file_list[0])
+            custom_data = {
+                "is_error": is_error,
+                "language_page": language_page,
+                "matched": matched,
+                "mismatched": mismatched
+            }
             pass
 
         elif self.request.path == '/camera':
@@ -125,6 +136,10 @@ class MainHandler(tornado.web.RequestHandler):
 
 
 class ApiHandler(tornado.websocket.WebSocketHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.assemblers = {}
+
     def check_origin(self, origin):
         return True
 
@@ -135,11 +150,31 @@ class ApiHandler(tornado.websocket.WebSocketHandler):
         self.loop = tornado.ioloop.PeriodicCallback(self.check_per_seconds, 1000)
         self.loop.start()  # 启动一个循环，每秒向electron端发送数字，该数字在不断递增
 
-    def on_message(self, message):
-        print("get message: ", message)
-        custom_data = {
-            "data": "hello " + message
-        }
+    async def on_message(self, message):
+        print("===== get_message =====")
+
+        data = tornado.escape.json_decode(message)
+        file_name = data.get('fileName')
+        current_slice = data.get('currentSlice')
+        total_slice = data.get('totalSlice')
+        file_data = data.get('file')
+
+        if file_name not in self.assemblers:
+            self.assemblers[file_name] = PdfAssembler(file_name, total_slice)
+        
+        assembler = self.assemblers[file_name]
+        assembler.add_slice(current_slice, file_data)
+        
+        if assembler.is_complete():
+            assembled_pdf_path = assembler.assemble_pdf()
+            if assembled_pdf_path:
+                print(f"PDF assembled: {assembled_pdf_path}")
+                # 可以在这里执行任何其他操作，例如将文件发送给客户端
+                await tasks.pdf2img_single(self, assembled_pdf_path)
+                # 然后清理已完成的 assembler
+                del self.assemblers[file_name]
+
+        custom_data = {"data": "return message"}
         self.write_message(custom_data)
 
     def on_close(self):

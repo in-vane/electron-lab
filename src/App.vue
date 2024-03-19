@@ -1,6 +1,6 @@
 <script setup>
-import { h, ref } from 'vue';
-import { RouterLink, RouterView } from 'vue-router';
+import { h, onMounted, ref, watchEffect } from 'vue';
+import { RouterLink, RouterView, useRoute } from 'vue-router';
 import {
   NLayout,
   NLayoutHeader,
@@ -13,130 +13,62 @@ import {
   NMessageProvider,
 } from 'naive-ui';
 import {
-  HomeOutline as HomeIcon,
-  LogoTableau as TableIcon,
-  SparklesOutline as SparklesIcon,
-  SquareOutline as SquareIcon,
-  BookOutline as BookIcon,
-  ConstructOutline as ConstructIcon,
-  BuildOutline as BuildIcon,
-  LanguageOutline as LanguageIcon,
+  HomeOutline as IHome,
+  LogoTableau as ITable,
+  SparklesOutline as ISpark,
+  SquareOutline as ISquare,
+  BookOutline as IBook,
+  ConstructOutline as IConstruct,
+  BuildOutline as IBuild,
+  LanguageOutline as ILang,
 } from '@vicons/ionicons5';
+
 import agsun from '@/assets/agsun.jpeg';
 
-// const api_url = 'ws://localhost:4242/api';
-// let apiWebSocket = new WebSocket(api_url);
-
-// apiWebSocket.onmessage = function (event) {
-//   console.log(event.data);
-//   showMessage(JSON.parse(event.data), 'input1');
-// };
-
-// function showMessage(message, id) {
-//   let inputElement = document.getElementById(id);
-//   if (inputElement != null) {
-//     inputElement.value = message['data'];
-//   }
-// }
-
-// function getWebsocketMessage() {
-//   apiWebSocket.send(JSON.stringify({ data: 'helloworld' }));
-// }
-
-function renderIcon(icon) {
-  return () => h(NIcon, null, { default: () => h(icon) });
-}
-
+const renderL = (path, label) => () =>
+  h(RouterLink, { to: { path } }, { default: () => label });
+const renderI = (icon) => () => h(NIcon, null, { default: () => h(icon) });
 const menuOptions = [
+  { label: renderL('/home', '首页'), key: 'home', icon: renderI(IHome) },
+  { label: renderL('/ce', 'CE表对比'), key: 'ce', icon: renderI(ITable) },
   {
-    label: () =>
-      h(RouterLink, { to: { path: '/home' } }, { default: () => '首页' }),
-    key: 'home',
-    icon: renderIcon(HomeIcon),
+    label: renderL('/explore', '爆炸图'),
+    key: 'explore',
+    icon: renderI(ISpark),
   },
   {
-    label: () =>
-      h(RouterLink, { to: { path: '/ce' } }, { default: () => 'CE表对比' }),
-    key: 'ce',
-    icon: renderIcon(TableIcon),
-  },
-  {
-    label: () =>
-      h(
-        RouterLink,
-        { to: { path: '/explored' } },
-        { default: () => '爆炸图对比' }
-      ),
-    key: 'explored',
-    icon: renderIcon(SparklesIcon),
-  },
-  {
-    label: () =>
-      h(
-        RouterLink,
-        { to: { path: '/contour' } },
-        { default: () => '爆炸图零件边缘检测' }
-      ),
+    label: renderL('/contour', '爆炸图零件计数'),
     key: 'contour',
-    icon: renderIcon(SparklesIcon),
+    icon: renderI(ISpark),
   },
+  { label: renderL('/size', '贴纸尺寸'), key: 'size', icon: renderI(ISquare) },
   {
-    label: () =>
-      h(
-        RouterLink,
-        { to: { path: '/size' } },
-        { default: () => '贴纸尺寸检查' }
-      ),
-    key: 'size',
-    icon: renderIcon(SquareIcon),
-  },
-  {
-    label: () =>
-      h(
-        RouterLink,
-        { to: { path: '/pageNumber' } },
-        { default: () => '页码检查' }
-      ),
+    label: renderL('/pageNumber', '页码检查'),
     key: 'pageNumber',
-    icon: renderIcon(BookIcon),
+    icon: renderI(IBook),
   },
   {
-    label: () =>
-      h(
-        RouterLink,
-        { to: { path: '/table' } },
-        { default: () => '明细表零件数量' }
-      ),
+    label: renderL('/table', '明细表'),
     key: 'table',
-    icon: renderIcon(ConstructIcon),
+    icon: renderI(IConstruct),
   },
+  { label: renderL('/screw', '螺丝包'), key: 'screw', icon: renderI(IBuild) },
   {
-    label: () =>
-      h(RouterLink, { to: { path: '/screw' } }, { default: () => '螺丝数量' }),
-    key: 'screw',
-    icon: renderIcon(BuildIcon),
-  },
-  {
-    label: () =>
-      h(
-        RouterLink,
-        { to: { path: '/language' } },
-        { default: () => '语言前后顺序' }
-      ),
+    label: renderL('/language', '语言顺序'),
     key: 'language',
-    icon: renderIcon(LanguageIcon),
+    icon: renderI(ILang),
   },
   {
-    label: () =>
-      h(
-        RouterLink,
-        { to: { path: '/camera' } },
-        { default: () => '摄像头测试' }
-      ),
+    label: renderL('/camera', '摄像头测试'),
     key: 'camera',
-    icon: renderIcon(LanguageIcon),
+    icon: renderI(ILang),
   },
 ];
+const routeName = ref('');
+const route = useRoute();
+watchEffect(() => {
+  routeName.value = route.name;
+});
 </script>
 
 <template>
@@ -159,11 +91,11 @@ const menuOptions = [
         bordered
         content-style="padding: 24px;"
       >
-        <n-menu :options="menuOptions" />
+        <n-menu :options="menuOptions" :value="routeName" />
       </n-layout-sider>
       <n-layout-content content-style="padding: 24px;">
         <n-message-provider>
-          <RouterView />
+          <router-view />
         </n-message-provider>
       </n-layout-content>
     </n-layout>

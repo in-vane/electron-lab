@@ -1,3 +1,4 @@
+import os
 import base64
 from io import BytesIO
 
@@ -10,8 +11,9 @@ from skimage.metrics import structural_similarity
 
 # 常量
 DPI = 300
-# CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
-# IMAGE_PATH = os.path.join(CURRENT_PATH, "image")
+BASE64_PNG = 'data:image/png;base64,'
+CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
+IMAGE_PATH = os.path.join(CURRENT_PATH, "images")
 
 
 def img2base64(img):
@@ -28,14 +30,13 @@ def is_vector_page(page):
     return vector_count > 1000
 
 
-def pdf2img_single(file):
-    # doc = fitz.open(stream=BytesIO(file))
-    doc = fitz.open('a.pdf')
+async def pdf2img_single(ws, pdf_path):
+    print(pdf_path)
+    doc = fitz.open(pdf_path)
+    
     doc_len = len(doc)
-    imgs_base64 = []
 
     for page_number in range(doc_len):
-        print(page_number)
         page = doc.load_page(page_number)
         if is_vector_page(page):
             img = page.get_pixmap()
@@ -44,9 +45,10 @@ def pdf2img_single(file):
             buffered = BytesIO()
             grayscale_img.save(buffered, format="PNG")
             img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
-            imgs_base64.append(img_base64)
+            await ws.write_message({"img_base64": f"{BASE64_PNG}{img_base64}"})
+
     print('===== done =====')
-    return imgs_base64
+    doc.close()
 
 
 # pdf转图片

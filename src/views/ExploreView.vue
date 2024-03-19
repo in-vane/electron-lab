@@ -1,7 +1,6 @@
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue';
 import {
-  NSwitch,
   NScrollbar,
   NIcon,
   NButton,
@@ -20,20 +19,71 @@ import { lyla } from '@/request';
 import VuePictureCropper, { cropper } from 'vue-picture-cropper';
 import { handleDownload } from '@/utils';
 import bgGray from '@/assets/bgGray.png';
-import testImg from './a2.jpg';
 
 const message = useMessage();
 const fileList = ref([]);
-const images = ref([
-  [testImg, testImg, testImg, testImg],
-  [testImg, testImg, testImg, testImg],
-]);
-const cropend = ref([bgGray, bgGray]);
+const images = ref([[], []]);
+const cropend = ref([]);
 const current = ref([0, 0]);
 const compared = ref('');
 const upload = ref(null);
 const loadingUpload = ref(false);
 const loadingCompare = ref(false);
+const ws = ref(null);
+
+const openWebsocket = () => {
+  const api_url = 'ws://localhost:4242/api';
+  const websocket = new WebSocket(api_url);
+
+  websocket.onopen = (e) => {
+    console.log('connected: ', e);
+  };
+  websocket.onclose = (e) => {
+    console.log('disconnected: ', e);
+  };
+  websocket.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.img_base64) {
+      images.value[0].push(data.img_base64);
+    }
+  };
+  websocket.onerror = (e) => {
+    console.log('error: ', e);
+  };
+
+  ws.value = websocket;
+};
+
+const closeWebsocket = () => {
+  ws.value.close();
+};
+
+const sendMessage = () => {
+  const file = fileList.value[0].file;
+  const size = file.size;
+  const shardSize = 1024 * 1024; // 以1MB为一个分片
+  const shardCount = Math.ceil(size / shardSize); // 总片数
+  console.log(size, shardSize, shardCount);
+
+  for (let i = 0; i < shardCount; i++) {
+    const start = i * shardSize;
+    const end = Math.min(size, start + shardSize);
+    const fileClip = file.slice(start, end);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const blob = reader.result;
+      await ws.value.send(
+        JSON.stringify({
+          fileName: file.name,
+          currentSlice: i + 1,
+          totalSlice: shardCount,
+          file: blob,
+        })
+      );
+    };
+    reader.readAsDataURL(fileClip);
+  }
+};
 
 const handleChange = (data) => {
   fileList.value = data.fileList;
@@ -50,17 +100,17 @@ const handleGetCrop = () => {
 };
 
 const handleUpload = () => {
-  if (fileList.value.length != 2) {
-    message.info('请上传两份文件');
-    return;
-  }
+  // if (fileList.value.length != 2) {
+  //   message.info('请上传两份文件');
+  //   return;
+  // }
   const formData = new FormData();
   for (const item of fileList.value) {
     formData.append(item.name, item.file);
   }
   loadingUpload.value = true;
   lyla
-    .post('/explore/pdf2img', { body: formData })
+    .post('/explore/pdf2img_single', { body: formData })
     .then((res) => {
       console.log(res);
       images.value = res.json.data;
@@ -125,6 +175,9 @@ onUnmounted(() => {
 
 <template>
   <div>
+    <n-button @click="openWebsocket">Open</n-button>
+    <n-button @click="sendMessage">Send</n-button>
+    <n-button @click="closeWebsocket">Close</n-button>
     <n-space vertical>
       <!-- upload -->
       <n-space justify="space-between">

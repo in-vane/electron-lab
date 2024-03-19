@@ -16,7 +16,12 @@ import { lyla } from '@/request';
 
 const upload = ref(null);
 const fileList = ref([]);
-const response = ref('');
+const response = ref({
+  error: false,
+  page: 0,
+  matched: [],
+  mismatched: [],
+});
 const loading = ref(false);
 
 const handleChange = (data) => {
@@ -36,17 +41,6 @@ const handleUpload = () => {
     .then((res) => {
       console.log(res);
       const _ = res.json;
-      if (_.is_error) {
-        const error_language =
-          typeof _.error_language == 'object' ? _.error_language : {};
-        let str = '检测到错误';
-        for (const [key, value] of Object.entries(error_language)) {
-          str += `\n目录为${key}, 正文为${value}`;
-        }
-        response.value = str;
-      } else {
-        response.value = '未检测到错误';
-      }
     })
     .catch((error) => {})
     .finally(() => {
@@ -86,7 +80,7 @@ const handleUpload = () => {
 </template>
 
 <style scoped>
-.n-p{
+.n-p {
   white-space: pre-line;
 }
 </style>
