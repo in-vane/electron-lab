@@ -1,5 +1,7 @@
 import re
 import time
+import tabula
+import pandas as pd
 from .get_similarity import compare_dictionaries
 
 
@@ -72,91 +74,99 @@ def update_key_standard_dict(data_dict):
     return updated_dict
 
 
-def get_client_document_as_dict(doc):
+def extract_table_from_pdf(pdf_path):
     """
-    读取传入的PDF文档对象里面的ce表，转化为字典。
-    主要形式是每行的第一个单元为键，而后面的单元作为该键的值，{'第一个单元内容':['第二单元','第三单元']}
+    从PDF中提取表格并返回字典。
+    键是表格中的第一个单元格的内容，值是随后单元格的内容的列表。
 
-    :param doc: 客户的pdf文档对象
-    :return: 读取pdf文档里面的ce表，转化为一个字典
+    :param pdf_path: PDF文件的路径
+    :return: 表格内容的字典
     """
-    ce_sign_pattern = re.compile(r'\b\d{4}-\d{2}\b')  # 定义正则表达式匹配模式
-    ce_sign = None  # 初始化CE标记变量
+    # 使用tabula读取PDF文件中的第一页上的表格
+    tables = tabula.read_pdf(pdf_path, pages=1, multiple_tables=True)
 
-    page = doc[0]  # 获取第一页
-    text = page.get_text()  # 提取整页文本
+    # 如果没有表格被找到，返回一个空字典
+    if not tables:
+        return {}
 
-    # 在整页文本中搜索符合CE标记的模式
-    ce_search = ce_sign_pattern.search(text)
-    if ce_search:
-        ce_sign = ce_search.group(0)  # 如果找到，提取CE标记
+    # 提取第一个表格（假设表格在第一页）
+    table = tables[0]
 
-    # 初始化字典来存储表格数据
+    # 创建一个字典来存储数据
     table_dict = {}
 
-    # 如果找到CE标记，添加到字典中
-    if ce_sign:
-        table_dict['CE-sign'] = [ce_sign]
+    # 遍历表格的每一行
+    for index, row in table.iterrows():
+        # 检查第一个单元格是否为空，如果不为空，则作为键
+        if pd.notna(row.iloc[0]):
+            key = row.iloc[0]  # 第一个单元格不为空，作为键
+            # 使用列表推导式创建值列表，过滤掉nan
+            values = [item for item in row.iloc[1:] if pd.notna(item)]
+            table_dict[key] = values
 
-    table_dict = remove_none_keys(table_dict)
-    table_dict = {k: v for k, v in table_dict.items() if v is not None}
     return table_dict
 
 
-"""
-
-def get_client_document_as_dict(pdf_path):
-  
-    ce_sign_pattern = re.compile(r'\b\d{4}-\d{2}\b')  # 定义正则表达式匹配模式
-    ce_sign = None  # 初始化CE标记变量
-    with fitz.open(pdf_path) as pdf:
-        page = pdf[0]  # 获取第一页
-        text = page.get_text()  # 提取整页文本
-
-        # 在整页文本中搜索符合CE标记的模式
-        ce_search = ce_sign_pattern.search(text)
-        if ce_search:
-            ce_sign = ce_search.group(0)  # 如果找到，提取CE标记
-
-        # 以下是提取表格数据的尝试性代码
-        # Fitz没有专门提取表格的方法，所以这部分需要根据实际PDF内容进行定制
-        # 可能需要分析页面文本的布局，手动解析表格数据
-        table_dict = {}  # 初始化字典来存储表格数据
-        # 代码逻辑需要根据您的PDF结构和数据布局来定制
-    # 如果找到CE标记，添加到字典中
-    if ce_sign:
-        ce_list = []
-        ce_list.append(ce_sign)
-        table_dict['CE-sign'] = ce_list
-    table_dict = remove_none_keys(table_dict)
-    return table_dict
-"""
-
-
-def remove_none_keys(dictionary):
+def remove_empty_lists(input_dict):
     """
-    删除字典，键为空的键值对
-    :param dictionary: 一个字典
-    :return: 修改后的字典
+    删除字典中值列表为空的键值对，并返回一个新的字典。
+
+    :param input_dict: 要处理的字典
+    :return: 更新后的字典，其中不包含空列表的键值对
     """
-    # 删除字典中键为None的项
-    if None in dictionary:
-        del dictionary[None]
-    return dictionary
+    # 使用字典推导式来创建一个新的字典，其中仅包含非空列表的键值对
+    new_dict = {key: value for key, value in input_dict.items() if value}
+
+    return new_dict
 
 
-def all(wb, work_table, doc):
+def add_ce_signs_to_dict(doc, input_dict):
+    """
+    从PDF文件中读取文本，查找所有符合XXXX-XX格式的字符串（X是1到9的数字），
+    并将它们作为列表添加到字典中，键为'CE-sign'。
+
+    :param pdf_path: PDF文件的路径
+    :param input_dict: 要更新的字典
+    :return: None（原地修改字典）
+    """
+
+
+    # 用于存储所有找到的CE标记的列表
+    ce_signs = []
+
+    # 正则表达式匹配XXXX-XX模式，其中X是1到9的数字
+    pattern = re.compile(r'\b[0-9]{4}-[0-9]{2}\b')
+
+    # 遍历PDF中的每一页
+    for page_num in range(len(doc)):
+        page = doc.load_page(page_num)
+        text = page.get_text()
+
+        # 在当前页的文本中查找所有匹配的字符串
+        matches = pattern.findall(text)
+        ce_signs.extend(matches)
+    # 如果找到了匹配的字符串，则更新输入字典
+    if ce_signs:
+        input_dict['CE-sign'] = ce_signs
+    return input_dict
+
+
+def all(wb, work_table, doc,PDF_PATH1):
     # 假设Excel文件已经保存在以下路径
     # 调用函数并打印结果
 
     red_text_data = get_standard_document_as_dict(wb, work_table)
-    print(red_text_data)
+    print(f"吉盛标准ce表:{red_text_data}")
 
     # 调用函数并传入PDF文件的路径
-    table_data = get_client_document_as_dict(doc)
-    print(table_data)
+    table_content_dict = extract_table_from_pdf(PDF_PATH1)
+    table_content_dict = remove_empty_lists(table_content_dict)
+    table_content_dict = add_ce_signs_to_dict(doc, table_content_dict)
+    print(f"客户ce表：{table_content_dict}")
+
+
     start = time.time()
-    red_text_data = compare_dictionaries(red_text_data, table_data)
+    red_text_data = compare_dictionaries(red_text_data, table_content_dict)
     print(red_text_data)
     end = time.time()
     print(f"对字典进行匹配耗时{end - start}秒")

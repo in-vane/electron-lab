@@ -34,17 +34,29 @@ def compute_cosine_similarity(text1, text2):
 
 def compare_values_containment(list1, list2):
     """
-    逐个对比两个长度相同的列表，对比方式是这样的看list2的值是否等于list1的值
-    :param list1: 标准ce的列表
-    :param list2: 客户ce的列表
+    逐个对比两个长度相同的列表，考虑到因不同输入法导致的字符差异，
+    对字符串进行预处理后再进行比较。
+    :param list1: 标准列表
+    :param list2: 对比列表
     :return: 匹配成功返回空列表，匹配失败返回不匹配值的索引列表
     """
     mismatch = []
 
+    # 定义替换规则
+    replace_rules = {
+        "；": ";", "，": ",", "。": ".", "：": ":", "（": "(", "）": ")",
+        "【": "[", "】": "]", "｛": "{", "｝": "}", "？": "?", "！": "!"
+    }
+
     for index, (value1, value2) in enumerate(zip(list1, list2), start=1):
-        # 检查list2中的值是否包含list1中对应位置的值
+        # 应用所有替换规则
+        for old, new in replace_rules.items():
+            value1 = value1.replace(old, new)
+            value2 = value2.replace(old, new)
+
+        # 比较处理后的字符串
         if value1 != value2:
-            mismatch.append(index)  # 记录不匹配值的序号
+            mismatch.append(index)
 
     return mismatch
 
