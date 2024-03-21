@@ -1,7 +1,8 @@
 import os
 import base64
 from io import BytesIO
-
+import io
+from PIL import Image
 import fitz
 import jpype
 import openpyxl
@@ -92,28 +93,35 @@ def convert_excel_sheet_to_pdf(excel_file, sheet_name):
     jpype.shutdownJVM()
 
 # 将pdf的第一页转化图片
-def convert_pdf_page_to_image(pdf_path, image_path, page_number=0):
+def convert_pdf_page_to_image_base64(page_number=0):
     """
-    Convert the specified page of a PDF file into an image.
-
+    Convert the specified page of a PDF file into a Base64 image string.
     :param pdf_path: Path to the PDF file.
-    :param image_path: Path where the image will be saved.
     :param page_number: The number of the page to convert (0-based).
+    :return: Base64 encoded string of the image.
     """
     # 打开PDF文件
-    doc = fitz.open(pdf_path)
+    doc = fitz.open(PDF_PATH)
 
-    # 选择PDF的第一页
+    # 选择PDF的指定页
     page = doc.load_page(page_number)
 
     # 将选中的页面转换为图片（pix）
     pix = page.get_pixmap()
 
-    # 将图片保存为文件
-    pix.save(image_path)
+     # 使用pixmap的samples属性来获取像素数据
+    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+
+    img_bytes = io.BytesIO()
+    img.save(img_bytes, format="PNG")  # 使用Pillow保存图像数据到BytesIO对象
+    img_bytes.seek(0)
+
+    base64_str = base64.b64encode(img_bytes.read()).decode('utf-8')
 
     # 关闭文档
     doc.close()
+
+    return base64_str
 
 
 def checkTags(excel_file, pdf_file):
@@ -128,16 +136,9 @@ def checkTags(excel_file, pdf_file):
     # 将excel转化为pdf，保存到PDF_PATH
     convert_excel_sheet_to_pdf(EXCEL_PATH, work_table)
     # 将excel转化为pdf，保存到PDF_PATG
-    convert_pdf_page_to_image(PDF_PATH, IMAGE_PATH)
+    image_base64 = convert_pdf_page_to_image_base64()
 
-    with open(IMAGE_PATH, "rb") as image_file:
-        image_data = image_file.read()
-    # 将二进制流编码为Base64字符串
-    base64_encoded_data = base64.b64encode(image_data)
 
-    # 将Base64字节对象转换为字符串
-    image_base64 = base64_encoded_data.decode('utf-8')
-    print(image_base64)
     os.remove(EXCEL_PATH)
     # os.remove(IMAGE_PATH)
     # os.remove(PDF_PATH)

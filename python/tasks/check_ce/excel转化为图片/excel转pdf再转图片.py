@@ -2,6 +2,10 @@ import jpype
 import os
 import asposecells
 # import fitz
+import fitz  # PyMuPDF
+import io
+import base64
+from PIL import Image
 
 CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
 EXCEL_PATH = os.path.join(CURRENT_PATH, "2.xlsx")
@@ -34,32 +38,44 @@ def convert_excel_sheet_to_pdf(excel_file, sheet_name):
 
     # 关闭JVM
     jpype.shutdownJVM()
-# 将pdf的第一页转化图片
-def convert_pdf_page_to_image(pdf_path, image_path, page_number=0):
-    """
-    Convert the specified page of a PDF file into an image.
 
+
+def convert_pdf_page_to_image_base64(pdf_path, page_number=0):
+    """
+    Convert the specified page of a PDF file into a Base64 image string.
     :param pdf_path: Path to the PDF file.
-    :param image_path: Path where the image will be saved.
     :param page_number: The number of the page to convert (0-based).
+    :return: Base64 encoded string of the image.
     """
     # 打开PDF文件
     doc = fitz.open(pdf_path)
 
-    # 选择PDF的第一页
+    # 选择PDF的指定页
     page = doc.load_page(page_number)
 
     # 将选中的页面转换为图片（pix）
     pix = page.get_pixmap()
 
-    # 将图片保存为文件
-    pix.save(image_path)
+     # 使用pixmap的samples属性来获取像素数据
+    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+
+    img_bytes = io.BytesIO()
+    img.save(img_bytes, format="PNG")  # 使用Pillow保存图像数据到BytesIO对象
+    img_bytes.seek(0)
+
+    base64_str = base64.b64encode(img_bytes.read()).decode('utf-8')
 
     # 关闭文档
     doc.close()
 
+    return base64_str
 
-  # 将excel转化为pdf，保存到PDF_PATH
+
+
+
+
+# 将excel转化为pdf，保存到PDF_PATH
 convert_excel_sheet_to_pdf(EXCEL_PATH, '例2')
 # 将excel转化为pdf，保存到PDF_PATG
-# convert_pdf_page_to_image(PDF_PATH, IMAGE_PATH)
+base64_str = convert_pdf_page_to_image_base64(PDF_PATH)
+
