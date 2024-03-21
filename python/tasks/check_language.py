@@ -155,30 +155,40 @@ def detect_language_of_texts(texts_by_languages):
     return detected_languages
 
 
-def process_language_messages(mismatched_languages, language_message, total_pages):
-    # Sort language_message by values
+def generate_language_report(language_message, total_pages, mismatched_languages):
+    # 计算每种语言的页码范围
     sorted_languages = sorted(language_message.items(), key=lambda x: x[1])
+    language_ranges = {}
+    for i, (lang, start_page) in enumerate(sorted_languages):
+        end_page = total_pages if i == len(sorted_languages) - 1 else sorted_languages[i + 1][1] - 1
+        language_ranges[lang] = [start_page, end_page]
 
-    # Construct new language_message dictionary
-    new_language_message = {}
-    for i in range(len(sorted_languages)):
-        if i == len(sorted_languages) - 1:
-            new_language_message[f"语言{sorted_languages[i][0]}"] = f"{sorted_languages[i][1]}页到{total_pages}页"
-        else:
-            new_language_message[
-                f"语言{sorted_languages[i][0]}"] = f"{sorted_languages[i][1]}页到{sorted_languages[i + 1][1] - 1}页"
+    # 生成不匹配语言的详细信息
+    result = []
+    for lang, actual_lang in mismatched_languages.items():
+        if lang in language_ranges:
+            error_entry = {
+                'language': lang,
+                'page_number': language_ranges[lang],
+                'error': True,
+                'actual_language': actual_lang
+            }
+            result.append(error_entry)
+            # 删除不匹配的语言，以便后续添加剩余正确的语言信息
+            del language_message[lang]
 
-    # Construct new mismatched_languages dictionary
-    new_mismatched_languages = {}
-    for lang, pages in mismatched_languages.items():
-        lang_key = f"语言{lang}"
-        if lang_key in new_language_message:
-            new_mismatched_languages[lang_key] = f"{new_language_message[lang_key]}，而正文却是语言{pages}"
+    # 添加剩余正确的语言信息
+    for lang in language_message.keys():
+        if lang in language_ranges:
+            correct_entry = {
+                'language': lang,
+                'page_number': language_ranges[lang],
+                'error': False,  # 正确的语言标记为无错误
+                'actual_language': lang  # 实际语言与标记语言相同
+            }
+            result.append(correct_entry)
 
-    # Delete keys from language_message if present in mismatched_languages
-    matched_languages = {k: v for k, v in new_language_message.items() if k not in new_mismatched_languages}
-
-    return matched_languages, new_mismatched_languages
+    return result
 
 
 def find_mismatched_languages(doc, detected_languages, page_number):
@@ -197,7 +207,7 @@ def find_mismatched_languages(doc, detected_languages, page_number):
 # 主函数
 def check_language(file):
     doc = fitz.open(stream=BytesIO(file))
-
+    # doc = fitz.open(file)
     total_pages = doc.page_count
     language_pages = get_directory(doc)
     language_page = language_pages[0][0]
@@ -212,10 +222,11 @@ def check_language(file):
     print(f"detected_languages: {detected_languages}")
     print(f"mismatched_languages: {mismatched_languages}")
 
-    matched_languages, mismatched_languages = process_language_messages(mismatched_languages, language_message,total_pages)
-    print(f"matched_languages:{matched_languages}")
-    print(f"mismatched_languages: {mismatched_languages}")
+    result = generate_language_report(mismatched_languages, language_message,total_pages)
+    print(f"result:{result}")
+
     doc.close()
     shutil.rmtree(IMAGE_PATH)
 
-    return is_error, language_page, matched_languages, mismatched_languages
+    return is_error, language_page, result
+# check_language('1.pdf')
