@@ -151,7 +151,7 @@ def add_ce_signs_to_dict(doc, input_dict):
     return input_dict
 
 
-def all(wb, work_table, doc,PDF_PATH1):
+def all(wb, work_table, doc, PDF_PATH1):
     # 假设Excel文件已经保存在以下路径
     # 调用函数并打印结果
 

@@ -12,6 +12,7 @@ from .get_table_message import all
 
 EXCEL_PATH = './python/assets/excel/temp.xlsx'
 IMAGE_PATH = './python/assets/images/temp.png'
+PDF_PATH_FROM_EXCEL = './python/assets/pdf/temp_excel.pdf'
 PDF_PATH = './python/assets/pdf/temp.pdf'
 
 
@@ -66,7 +67,8 @@ def change_excel(wb, work_table, message_dict):
 # 将ecxel转化pdf
 def convert_excel_sheet_to_pdf(excel_file, sheet_name):
     # 启动JVM
-    jpype.startJVM()
+    if not jpype.isJVMStarted():
+        jpype.startJVM()
     from asposecells.api import Workbook, PdfSaveOptions
 
     # 加载Excel文档
@@ -87,7 +89,7 @@ def convert_excel_sheet_to_pdf(excel_file, sheet_name):
     saveOptions.setOnePagePerSheet(True)
 
     # 保存为PDF
-    workbook.save(PDF_PATH, saveOptions)
+    workbook.save(PDF_PATH_FROM_EXCEL, saveOptions)
 
     # 关闭JVM
     jpype.shutdownJVM()
@@ -101,7 +103,7 @@ def convert_pdf_page_to_image_base64(page_number=0):
     :return: Base64 encoded string of the image.
     """
     # 打开PDF文件
-    doc = fitz.open(PDF_PATH)
+    doc = fitz.open(PDF_PATH_FROM_EXCEL)
 
     # 选择PDF的指定页
     page = doc.load_page(page_number)
@@ -126,12 +128,11 @@ def convert_pdf_page_to_image_base64(page_number=0):
 
 def checkTags(excel_file, pdf_file):
     work_table = '例2'
-    # doc = fitz.open(pdf_file)
-    # wb = openpyxl.load_workbook(excel_file)
     doc = fitz.open(stream=BytesIO(pdf_file))
+    doc.save(PDF_PATH)
     wb = openpyxl.load_workbook(filename=BytesIO(excel_file))
     wb.save(EXCEL_PATH)
-    message_dict = all(wb, work_table, doc)
+    message_dict = all(wb, work_table, doc, PDF_PATH)
     change_excel(wb, work_table, message_dict)
     # 将excel转化为pdf，保存到PDF_PATH
     convert_excel_sheet_to_pdf(EXCEL_PATH, work_table)
@@ -140,10 +141,6 @@ def checkTags(excel_file, pdf_file):
 
 
     os.remove(EXCEL_PATH)
-    # os.remove(IMAGE_PATH)
-    # os.remove(PDF_PATH)
-    # Close the workbook
-    #     # wb.close()
 
     return image_base64
 
