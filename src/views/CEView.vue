@@ -14,7 +14,7 @@ import {
 } from 'naive-ui';
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
-import { handleDownload } from '@/utils';
+// import { handleDownload } from '@/utils';
 
 const upload = ref(null);
 const fileList = ref([]);
@@ -34,7 +34,7 @@ const handleUpload = () => {
   loading.value = true;
   const formData = new FormData();
   for (const item of fileList.value) {
-    formData.append('file', item.file);
+    formData.append(item.file.name, item.file);
   }
   formData.append('mode', mode.value);
 

@@ -3,19 +3,15 @@ import base64
 from io import BytesIO
 
 import fitz
+import jpype
 import openpyxl
 from openpyxl.styles import Border, Side
 
-import os
-import jpype
-
-
 from .get_table_message import all
 
-CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
-EXCEL_PATH = os.path.join(CURRENT_PATH, "temp.xlsx")
-IMAGE_PATH = os.path.join(CURRENT_PATH, 'temp.png')
-PDF_PATH = os.path.join(CURRENT_PATH, 'temp.pdf')
+EXCEL_PATH = './python/assets/excel/temp.xlsx'
+IMAGE_PATH = './python/assets/images/temp.png'
+PDF_PATH = './python/assets/pdf/temp.pdf'
 
 
 def change_excel(wb, work_table, message_dict):

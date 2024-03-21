@@ -51,38 +51,23 @@ class MainHandler(tornado.web.RequestHandler):
             files.append(file[0])
         return files
 
-    def post(self):
-        pass
-        # elif path == '/table':
-        #     doc_base64, error_page = tasks.compare_table(files[0])
-        #     custom_data = {"data": doc_base64, "error_page": error_page}
-        #     pass
-        # elif path == '/language':
-        #     is_error, language_page, matched, mismatched = tasks.check_language(files[0])
-        #     custom_data = {
-        #         "is_error": is_error,
-        #         "language_page": language_page,
-        #         "matched": matched,
-        #         "mismatched": mismatched
-        #     }
-        #     pass
-        # elif path == '/camera':
-        #     img_base64_pic, img_base64_doc = tasks.check_camera(img_base64=arguments[0], pdf=files[0])
-        #     custom_data = {"img_base64_pic": f"{BASE64_PNG}{img_base64_pic}", "img_base64_doc": f"{BASE64_PNG}{img_base64_doc}"}
-        #     pass
-        # elif path == '/other':
-        #     pass
-
 
 class CEHandler(MainHandler):
     def post(self):
-        mode = self.get_argument('mode')
+        mode = int(self.get_argument('mode'))
         files = self.get_files()
-        file = files[0]
-        filename, body = file["filename"], file["body"]
-        # TODO
+        file_1, file_2 = files[0], files[1]
+        file_1_type, file_1_body = file_1["content_type"], file_1["body"]
+        file_2_body = file_2["body"]
+        if file_1_type == CONTENT_TYPE_PDF:
+            file_pdf, file_excel = file_1_body, file_2_body
+        else:
+            file_pdf, file_excel = file_2_body, file_1_body
+        img_base64 = ''
+        if mode == 0:
+            img_base64 = tasks.check_CE_mode_normal(file_excel, file_pdf)
         custom_data = {
-            "result": "TODO"
+            "result": img_base64
         }
         self.write(custom_data)
 
