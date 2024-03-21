@@ -155,10 +155,10 @@ def detect_language_of_texts(texts_by_languages):
     return detected_languages
 
 
-def generate_language_report(language_message, total_pages, mismatched_languages):
+def generate_language_report(mismatched_languages, language_message,total_pages):
 
     # 使用字典推导式将每个值转换为大写
-    mismatched_languages_upper = {key: value.upper() for key, value in mismatched_languages.items()}
+    mismatched_languages = {key: value.upper() for key, value in mismatched_languages.items()}
 
     # 计算每种语言的页码范围
     sorted_languages = sorted(language_message.items(), key=lambda x: x[1])

@@ -154,6 +154,7 @@ const boxStyle = {
   width: '100%',
   border: '1px dashed rgb(224, 224, 230)',
   borderRadius: '3px',
+  marginTop: '8px'
 };
 
 const options = {
@@ -315,6 +316,7 @@ onUnmounted(() => {
 .scroll-box {
   display: flex;
   gap: 12px;
+  margin-top: 8px;
 }
 .n-scrollbar {
   flex: 1;

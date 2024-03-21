@@ -10,13 +10,11 @@ import pandas as pd
 from tabula import read_pdf
 
 
-CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
-PDF_PATH = os.path.join(CURRENT_PATH, "temp.pdf")
-# IMAGE_PATH = os.path.join(CURRENT_PATH, "image")
-# MODEL_PATH = os.path.join(CURRENT_PATH, "model.pth")
-CSV_PATH = os.path.join(CURRENT_PATH, "exact_table.csv")
+PDF_PATH = './python/assets/pdf/temp.pdf'
+CSV_PATH = './python/assets/csv/exact_table.csv' 
 SUCCESS = 0
 ERROR_NO_EXPLORED_VIEW = 1
+BASE64_PNG = 'data:image/png;base64,'
 
 """
 # 预测爆炸图的二分模型
@@ -266,7 +264,7 @@ def get_error_pages_as_base64(error_pages, doc):
         img_bytes.seek(0)
 
         base64_str = base64.b64encode(img_bytes.read()).decode('utf-8')
-        base64_images.append(base64_str)
+        base64_images.append(f"{BASE64_PNG}{base64_str}")
 
     return base64_images
 

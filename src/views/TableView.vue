@@ -7,22 +7,25 @@ import {
   NUpload,
   NUploadDragger,
   NText,
-  NP,
   NImage,
+  NImageGroup,
   NSpin,
   NSpace,
   NH3,
 } from 'naive-ui';
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
-// import { handleDownload } from '@/utils';
+import res_1 from '@/assets/table_result_1.png';
+import res_2 from '@/assets/table_result_2.png';
 
 const upload = ref(null);
 
 const fileList = ref([]);
-const pageNumber = ref();
-const response = ref({});
-const errorPages = ref([]);
+const pageNumber = ref('');
+const response = ref({
+  base64_imgs: [res_1, res_2],
+  error_pages: [4, 6],
+});
 
 const loading = ref(false);
 
@@ -77,13 +80,28 @@ const handleUpload = () => {
         <n-input
           v-model:value="pageNumber"
           type="text"
-          placeholder="爆炸图的页码数"
+          placeholder="明细表所在页码"
         />
         <n-button @click="handleUpload"> 开始检查 </n-button>
       </n-space>
     </n-spin>
-    <n-h3 prefix="bar">2. 检查结果</n-h3>
-    <n-p v-show="response.length">出错表格所在的页码为: {{ errorPages }}</n-p>
+    <div>
+      <n-h3 prefix="bar">2. 检查结果</n-h3>
+      <n-text v-show="response.error_pages.length">
+        出错表格所在的页码为: {{ response.error_pages }}
+      </n-text>
+      <n-image-group>
+        <n-space>
+          <n-image
+            v-for="(img, i) in response.base64_imgs"
+            :key="i"
+            :src="img"
+            alt="image"
+            height="200px"
+          />
+        </n-space>
+      </n-image-group>
+    </div>
   </n-space>
 </template>
 

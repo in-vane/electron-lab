@@ -67,7 +67,7 @@ class CEHandler(MainHandler):
         if mode == 0:
             img_base64 = tasks.check_CE_mode_normal(file_excel, file_pdf)
         custom_data = {
-            "result": img_base64
+            "result": f"{BASE64_PNG}{img_base64}"
         }
         self.write(custom_data)
 
@@ -108,16 +108,16 @@ class PageNumberHandler(MainHandler):
 
 class TableHandler(MainHandler):
     def post(self):
-        # files = self.get_files()
-        # file = files[0]
-        # body = file["body"]
-        # doc_base64, error_page = tasks.compare_table(body)
-        # custom_data = {
-        #     "error": error,
-        #     "error_page": error_page,
-        #     "result": result
-        # }
-        self.write({})
+        page_number = int(self.get_argument('pageNumber'))
+        files = self.get_files()
+        file = files[0]
+        body = file["body"]
+        base64_imgs, error_pages = tasks.compare_table(body, page_number)
+        custom_data = {
+            "base64_imgs": base64_imgs,
+            "error_pages": error_pages,
+        }
+        self.write(custom_data)
 
 class ScrewHandler(MainHandler):
     def post(self):
@@ -136,13 +136,11 @@ class LanguageHandler(MainHandler):
         files = self.get_files()
         file = files[0]
         body = file["body"]
-        error, content_page, matched, mismatched = tasks.check_language(body)
+        error, content_page, result = tasks.check_language(body)
         custom_data = {
             "error": error,
             "content_page": content_page,
-            "matched": matched,
-            "mismatched": mismatched,
-            "result": ""
+            "result": result
         }
         self.write(custom_data)
 

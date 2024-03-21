@@ -50,8 +50,8 @@ const handleUpload = () => {
 
 <template>
   <n-space vertical>
-    <n-h3 prefix="bar">选择要检查的PDF文件</n-h3>
     <n-spin :show="loading">
+      <n-h3 prefix="bar">选择要检查的PDF文件</n-h3>
       <n-upload
         multiple
         ref="upload"
@@ -95,6 +95,12 @@ const handleUpload = () => {
 </template>
 
 <style scoped>
+.n-space {
+  gap: 24px 12px !important;
+}
+.n-h3 {
+  margin-bottom: 8px;
+}
 .n-image {
   border: solid 1px rgb(224, 224, 230);
   border-radius: 3px;

@@ -1,7 +1,10 @@
 <script setup>
 import { ref } from 'vue';
 import {
+  NRadioGroup,
+  NRadio,
   NSelect,
+  NInput,
   NIcon,
   NButton,
   NUpload,
@@ -14,11 +17,11 @@ import {
 } from 'naive-ui';
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
-// import { handleDownload } from '@/utils';
+import result_normal from '@/assets/result_normal.png';
 
 const upload = ref(null);
 const fileList = ref([]);
-const response = ref({ result: '' });
+const response = ref({ result: result_normal });
 const loading = ref(false);
 const mode = ref(0);
 const options = [
@@ -42,8 +45,7 @@ const handleUpload = () => {
     .post('/ce', { body: formData })
     .then((res) => {
       console.log(res);
-      response.value = res.json.data;
-      // handleDownload(res.json.data, 'excel');
+      response.value = res.json;
     })
     .catch((err) => {})
     .finally(() => (loading.value = false));
@@ -74,12 +76,30 @@ const handleUpload = () => {
           </n-p>
         </n-upload-dragger>
       </n-upload>
-      <n-space>
-        <n-select v-model:value="mode" :options="options" />
-        <n-button type="primary" @click="handleUpload"> 开始对比 </n-button>
+      <n-space vertical>
+        <n-radio-group v-model:value="mode" name="radiogroup">
+          <n-space>
+            <n-radio
+              v-for="option in options"
+              :key="option.value"
+              :value="option.value"
+            >
+              {{ option.label }}
+            </n-radio>
+          </n-space>
+        </n-radio-group>
+        <n-space>
+          <n-input type="text" placeholder="Sheet表" />
+          <n-button type="primary" @click="handleUpload"> 开始对比 </n-button>
+        </n-space>
       </n-space>
     </n-spin>
-    <!-- <n-image v-show="response" :src="response" alt="image" width="100%" /> -->
+    <n-image
+      v-show="response.result"
+      :src="response.result"
+      alt="image"
+      width="100%"
+    />
   </n-space>
 </template>
 

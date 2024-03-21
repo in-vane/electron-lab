@@ -16,53 +16,31 @@ import {
   HomeOutline as IHome,
   LogoTableau as ITable,
   SparklesOutline as ISpark,
-  SquareOutline as ISquare,
+  CropOutline as ICrop,
   BookOutline as IBook,
-  ConstructOutline as IConstruct,
+  ListOutline as IList,
   BuildOutline as IBuild,
   LanguageOutline as ILang,
+  CogOutline as ICog,
+  CameraOutline as ICamera,
 } from '@vicons/ionicons5';
 
-import agsun from '@/assets/agsun.jpeg';
+// import agsun from '@/assets/agsun.jpeg';
 
-const renderL = (path, label) => () =>
+const l = (path, label) => () =>
   h(RouterLink, { to: { path } }, { default: () => label });
-const renderI = (icon) => () => h(NIcon, null, { default: () => h(icon) });
+const ri = (icon) => () => h(NIcon, null, { default: () => h(icon) });
 const menuOptions = [
-  { label: renderL('/home', '首页'), key: 'home', icon: renderI(IHome) },
-  { label: renderL('/ce', 'CE表对比'), key: 'ce', icon: renderI(ITable) },
-  {
-    label: renderL('/explore', '爆炸图'),
-    key: 'explore',
-    icon: renderI(ISpark),
-  },
-  {
-    label: renderL('/contour', '爆炸图零件计数'),
-    key: 'contour',
-    icon: renderI(ISpark),
-  },
-  { label: renderL('/size', '贴纸尺寸'), key: 'size', icon: renderI(ISquare) },
-  {
-    label: renderL('/pageNumber', '页码检查'),
-    key: 'pageNumber',
-    icon: renderI(IBook),
-  },
-  {
-    label: renderL('/table', '明细表'),
-    key: 'table',
-    icon: renderI(IConstruct),
-  },
-  { label: renderL('/screw', '螺丝包'), key: 'screw', icon: renderI(IBuild) },
-  {
-    label: renderL('/language', '语言顺序'),
-    key: 'language',
-    icon: renderI(ILang),
-  },
-  {
-    label: renderL('/camera', '摄像头测试'),
-    key: 'camera',
-    icon: renderI(ILang),
-  },
+  { label: l('/home', '首页'), key: 'home', icon: ri(IHome) },
+  { label: l('/ce', 'CE表对比'), key: 'ce', icon: ri(ITable) },
+  { label: l('/explore', '爆炸图'), key: 'explore', icon: ri(ISpark) },
+  { label: l('/count', '零件计数'), key: 'count', icon: ri(ICog) },
+  { label: l('/size', '贴纸尺寸'), key: 'size', icon: ri(ICrop) },
+  { label: l('/pageNo', '页码检查'), key: 'pageNo', icon: ri(IBook) },
+  { label: l('/table', '明细表'), key: 'table', icon: ri(IList) },
+  { label: l('/screw', '螺丝包'), key: 'screw', icon: ri(IBuild) },
+  { label: l('/lang', '语言顺序'), key: 'lang', icon: ri(ILang) },
+  { label: l('/camera', '实物检测'), key: 'camera', icon: ri(ICamera) },
 ];
 const routeName = ref('');
 const route = useRoute();
@@ -74,26 +52,35 @@ watchEffect(() => {
 <template>
   <n-layout
     :content-style="{
-      minHeight: '100vh',
+      height: '100vh',
       display: 'flex',
       flexDirection: 'column',
     }"
   >
-    <n-layout-header bordered>
-      <n-image :src="agsun" />
+    <n-layout-header>
+      <!-- <n-image :src="agsun" /> -->
     </n-layout-header>
     <n-layout has-sider>
       <n-layout-sider
-        collapse-mode="width"
-        :collapsed-width="96"
-        :width="240"
-        show-trigger="arrow-circle"
         bordered
-        content-style="padding: 24px;"
+        default-collapsed
+        collapse-mode="width"
+        :collapsed-width="64"
+        :width="200"
+        show-trigger="arrow-circle"
+        :native-scrollbar="false"
       >
-        <n-menu :options="menuOptions" :value="routeName" />
+        <n-menu
+          :options="menuOptions"
+          :value="routeName"
+          :collapsed-width="64"
+          :collapsed-icon-size="22"
+        />
       </n-layout-sider>
-      <n-layout-content content-style="padding: 24px;">
+      <n-layout-content
+        content-style="padding: 24px;"
+        :native-scrollbar="false"
+      >
         <n-message-provider>
           <router-view />
         </n-message-provider>
@@ -108,7 +95,7 @@ watchEffect(() => {
   padding: 0 24px;
 }
 .n-layout-footer {
-  padding: 24px;
+  padding: 8px;
   color: rgb(118, 124, 130);
   background: none;
   text-align: center;

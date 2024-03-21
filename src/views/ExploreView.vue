@@ -17,7 +17,6 @@ import {
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
 import VuePictureCropper, { cropper } from 'vue-picture-cropper';
-import { handleDownload } from '@/utils';
 
 const message = useMessage();
 const upload = ref(null);
@@ -26,6 +25,7 @@ const isComplete = ref([false, false]);
 
 const fileList = ref([]);
 const images = ref([[], []]);
+const progress = ref([0, 0]);
 const current = ref([0, 0]);
 const cropend = ref([]);
 const response = ref({ result: '' });
@@ -51,6 +51,9 @@ const openWebsocket = () => {
     const data = JSON.parse(e.data);
     if (data.type == 'sendFileClip') {
       images.value[data.index].push(data.img_base64);
+      if (progress.value[data.index] != data.total) {
+        progress.value[data.index] = data.total;
+      }
       if (data.current == data.total) {
         isComplete.value[data.index] = true;
       }
@@ -132,7 +135,7 @@ const handleCompare = () => {
       console.log(res);
       response.value = res.json;
     })
-    .catch((error) => {})
+    .catch((err) => {})
     .finally(() => {
       loadingCompare.value = false;
       window.scrollTo({
@@ -158,6 +161,7 @@ const boxStyle = {
   width: '100%',
   border: '1px dashed rgb(224, 224, 230)',
   borderRadius: '3px',
+  marginTop: '8px',
 };
 
 const options = {
@@ -182,38 +186,42 @@ onUnmounted(() => {
       <!-- upload -->
       <div>
         <n-h3 prefix="bar">1. 上传PDF</n-h3>
-        <n-spin :show="loadingUpload">
-          <n-upload
-            multiple
-            ref="upload"
-            accept=".pdf"
-            :max="2"
-            :default-upload="false"
-            v-model:file-list="fileList"
-            @change="handleChange"
-          >
-            <n-upload-dragger>
-              <div style="margin-bottom: 12px">
-                <n-icon size="48" :depth="3">
-                  <archive-icon />
-                </n-icon>
-              </div>
-              <n-text style="font-size: 16px">
-                点击或者拖动文件到该区域来上传
-              </n-text>
-              <n-p depth="3" style="margin: 8px 0 0 0">
-                检查两份pdf中爆炸图与安装图不一致的部分
-              </n-p>
-            </n-upload-dragger>
-          </n-upload>
-          <n-button type="primary" @click="handleUpload"> 开始转换 </n-button>
-        </n-spin>
+        <n-upload
+          multiple
+          ref="upload"
+          accept=".pdf"
+          :max="2"
+          :default-upload="false"
+          v-model:file-list="fileList"
+          :disabled="loadingUpload"
+          @change="handleChange"
+        >
+          <n-upload-dragger>
+            <div style="margin-bottom: 12px">
+              <n-icon size="48" :depth="3">
+                <archive-icon />
+              </n-icon>
+            </div>
+            <n-text style="font-size: 16px">
+              点击或者拖动文件到该区域来上传
+            </n-text>
+            <n-p depth="3" style="margin: 8px 0 0 0">
+              检查两份pdf中爆炸图与安装图不一致的部分
+            </n-p>
+          </n-upload-dragger>
+        </n-upload>
+        <n-button :disabled="loadingUpload" @click="handleUpload">
+          开始转换
+        </n-button>
       </div>
       <!-- preview -->
       <n-spin :show="loadingUpload">
         <div class="box-divider">
           <div class="box-divider-item">
-            <n-h3 prefix="bar">文件1中的图像预览</n-h3>
+            <n-h3 prefix="bar"
+              >文件1中的图像预览
+              {{ `${images[0].length} / ${progress[0]}` }}</n-h3
+            >
             <div class="scroll-box">
               <n-scrollbar class="n-scrollbar" x-scrollable>
                 <div class="preview-box">
@@ -239,7 +247,10 @@ onUnmounted(() => {
             </div>
           </div>
           <div class="box-divider-item">
-            <n-h3 prefix="bar">文件2中的图像预览</n-h3>
+            <n-h3 prefix="bar"
+              >文件2中的图像预览
+              {{ `${images[1].length} / ${progress[1]}` }}</n-h3
+            >
             <div class="scroll-box">
               <n-scrollbar x-scrollable>
                 <div class="preview-box">
@@ -270,7 +281,7 @@ onUnmounted(() => {
       <div class="box-divider">
         <div class="box-divider-item">
           <n-h3 prefix="bar">3. 选取对比区域</n-h3>
-          <n-button type="primary" @click="handleCompare"> 开始对比 </n-button>
+          <n-button @click="handleCompare"> 开始对比 </n-button>
           <vue-picture-cropper
             :boxStyle="boxStyle"
             :img="images[current[0]][current[1]]"
@@ -279,9 +290,7 @@ onUnmounted(() => {
         </div>
         <div class="box-divider-item">
           <n-h3 prefix="bar">5. 对比结果</n-h3>
-          <n-button type="primary" @click="handleSaveResult">
-            保存结果
-          </n-button>
+          <n-button @click="handleSaveResult"> 保存结果 </n-button>
           <div class="preview-box preview-box-result">
             <n-image
               v-show="response.result"
@@ -334,6 +343,7 @@ onUnmounted(() => {
   gap: 12px;
 }
 .preview-box-result {
+  margin-top: 8px;
   min-height: 400px;
 }
 </style>

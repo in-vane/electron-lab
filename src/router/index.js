@@ -24,8 +24,8 @@ const router = createRouter({
       component: () => import('../views/ExploreView.vue'),
     },
     {
-      path: '/contour',
-      name: 'contour',
+      path: '/count',
+      name: 'count',
       component: () => import('../views/PartCountView.vue'),
     },
     {
@@ -34,8 +34,8 @@ const router = createRouter({
       component: () => import('../views/SizeView.vue'),
     },
     {
-      path: '/pageNumber',
-      name: 'pageNumber',
+      path: '/pageNo',
+      name: 'pageNo',
       component: () => import('../views/PageNumberView.vue'),
     },
     {
@@ -49,8 +49,8 @@ const router = createRouter({
       component: () => import('../views/ScrewView.vue'),
     },
     {
-      path: '/language',
-      name: 'language',
+      path: '/lang',
+      name: 'lang',
       component: () => import('../views/LanguageView.vue'),
     },
     {

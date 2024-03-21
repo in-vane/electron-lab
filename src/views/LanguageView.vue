@@ -20,9 +20,8 @@ const upload = ref(null);
 const fileList = ref([]);
 const response = ref({
   error: false,
-  page: 0,
-  matched: [],
-  mismatched: [],
+  content_page: 0,
+  result: [],
 });
 const loading = ref(false);
 
@@ -38,13 +37,46 @@ const handleUpload = () => {
     .post('/language', { body: formData })
     .then((res) => {
       console.log(res);
-      response = res.json;
+      response.value = res.json;
     })
     .catch((err) => {})
     .finally(() => {
       loading.value = false;
     });
 };
+const renderRowClass = (rowData) => (rowData.error ? 'row-error' : '');
+const columns = [
+  { title: '目录语言', key: 'language' },
+  { title: '页码范围', render: (_) => _.page_number.join(' ~ ') },
+  { title: '顺序正误', render: (_) => (_.error ? '错误' : '正确') },
+  { title: '正文语言', render: (_) => (_.error ? _.actual_language : '-') },
+];
+const mock = [
+  {
+    language: 'FR',
+    page_number: [11, 17],
+    error: true,
+    actual_language: 'EN',
+  },
+  {
+    language: 'EN',
+    page_number: [18, 24],
+    error: true,
+    actual_language: 'FR',
+  },
+  {
+    language: 'NL',
+    page_number: [4, 10],
+    error: false,
+    actual_language: 'NL',
+  },
+  {
+    language: 'DE',
+    page_number: [25, 52],
+    error: false,
+    actual_language: 'DE',
+  },
+];
 </script>
 
 <template>
