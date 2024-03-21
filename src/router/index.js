@@ -26,7 +26,7 @@ const router = createRouter({
     {
       path: '/contour',
       name: 'contour',
-      component: () => import('../views/ContourView.vue'),
+      component: () => import('../views/PartCountView.vue'),
     },
     {
       path: '/size',

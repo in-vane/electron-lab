@@ -7,24 +7,25 @@ import tornado.options
 import tornado.ioloop
 
 import tasks
-from utils import PdfAssembler
+from utils import PDFAssembler
 
-BASE64_IMG = 'data:image/jpeg;base64,'
+CONTENT_TYPE_PDF = "application/pdf"
+BASE64_PNG = 'data:image/png;base64,'
+BASE64_JPG = 'data:image/jpeg;base64,'
 
 class Application(tornado.web.Application):
     def __init__(self):
         handlers = [
             (r'/', MainHandler),
-            (r'/ce', MainHandler),
-            (r'/explore/pdf2img', MainHandler),
-            (r'/explore/compare', MainHandler),
-            (r'/contours', MainHandler),
-            (r'/size', MainHandler),
-            (r'/pageNumber', MainHandler),
-            (r'/table', MainHandler),
-            (r'/screw', MainHandler),
-            (r'/language', MainHandler),
-            (r'/camera', MainHandler),
+            (r'/ce', CEHandler),
+            (r'/explore', ExploreHandler),
+            (r'/partCount', PartCountHandler),
+            (r'/size', SizeHandler),
+            (r'/pageNumber', PageNumberHandler),
+            (r'/table', TableHandler),
+            (r'/screw', ScrewHandler),
+            (r'/language', LanguageHandler),
+            (r'/camera', CameraHandler),
             (r"/api", ApiHandler),
         ]
         settings = {
@@ -44,94 +45,131 @@ class MainHandler(tornado.web.RequestHandler):
         self.set_status(200)
         self.finish()
         
+    def get_files(self):
+        files = []
+        for field_name, file in self.request.files.items():
+            files.append(file[0])
+        return files
+
+
+class CEHandler(MainHandler):
     def post(self):
-        print("===== post =====")
+        mode = int(self.get_argument('mode'))
+        files = self.get_files()
+        file_1, file_2 = files[0], files[1]
+        file_1_type, file_1_body = file_1["content_type"], file_1["body"]
+        file_2_body = file_2["body"]
+        if file_1_type == CONTENT_TYPE_PDF:
+            file_pdf, file_excel = file_1_body, file_2_body
+        else:
+            file_pdf, file_excel = file_2_body, file_1_body
+        img_base64 = ''
+        if mode == 0:
+            img_base64 = tasks.check_CE_mode_normal(file_excel, file_pdf)
+        custom_data = {
+            "result": img_base64
+        }
+        self.write(custom_data)
 
-        file_list_keys = self.request.files.keys()
-        arguments_keys = self.request.arguments.keys()
-        file_list = []
-        arguments = []
-        custom_data = {}
+class ExploreHandler(MainHandler):
+    def post(self):
+        img_1 = self.get_argument('img_1')
+        img_2 = self.get_argument('img_2')
+        img_base64 = tasks.compare_explore(img_1, img_2)
+        custom_data = { "result": f"{BASE64_PNG}{img_base64}" }
+        self.write(custom_data)
 
-        # 处理接收到的文件
-        for _, key in enumerate(file_list_keys):
-            _file = self.request.files[key][0]
-            file_list.append(_file['body'])
+class PartCountHandler(MainHandler):
+    def post(self):
+        filename = self.get_argument('filename')
+        rect = self.get_arguments('rect')
+        rect_int = [int(x) for x in rect]
+        page_number_explore = int(self.get_argument('pageNumberExplore'))
+        page_number_table = int(self.get_argument('pageNumberTable'))
+        error, result = tasks.check_part_count(filename, rect_int, page_number_explore, page_number_table)
+        custom_data = {
+            "error": error,
+            "result": result
+        }
+        self.write(custom_data)
 
-        # 处理接收到的参数对象（这里只处理base64）
-        for _, key in enumerate(arguments_keys):
-            _argument = self.request.arguments[key][0]
-            comma_index = _argument.find(b',')
-            base64_data = _argument[comma_index + 1:]
-            arguments.append(base64_data)
+class PageNumberHandler(MainHandler):
+    def post(self):
+        files = self.get_files()
+        file = files[0]
+        body = file["body"]
+        error, error_page, result = tasks.check_page_number(body)
+        custom_data = {
+            "error": error,
+            "error_page": error_page,
+            "result": result
+        }
+        self.write(custom_data)
 
-        # 路由分发
-        if self.request.path == '/ce':
-            xls_base64 = tasks.check_CE_mode_normal(file_list[0], file_list[1])
-            custom_data = {"data": xls_base64}
-            pass
+class TableHandler(MainHandler):
+    def post(self):
+        # files = self.get_files()
+        # file = files[0]
+        # body = file["body"]
+        # doc_base64, error_page = tasks.compare_table(body)
+        # custom_data = {
+        #     "error": error,
+        #     "error_page": error_page,
+        #     "result": result
+        # }
+        self.write({})
 
-        elif self.request.path == '/explore/pdf2img_single':
-            imgs_path = tasks.pdf2img_single(file_list[0])
-            custom_data = {"data": imgs_path}
-            pass
+class ScrewHandler(MainHandler):
+    def post(self):
+        files = self.get_files()
+        file = files[0]
+        body = file["body"]
+        result = tasks.check_screw(body)
+        custom_data = {
+            "error": True,
+            "result": result
+        }
+        self.write(custom_data)
 
-        elif self.request.path == '/explore/pdf2img':
-            data = []
-            for file in file_list: 
-                img_base64, image_base64_s = tasks.pdf2img(file)
-                data.append([f"{BASE64_IMG}{img_base64}", f"{BASE64_IMG}{image_base64_s}"])
-            custom_data = {"data": data}
-            pass
+class LanguageHandler(MainHandler):
+    def post(self):
+        files = self.get_files()
+        file = files[0]
+        body = file["body"]
+        error, content_page, matched, mismatched = tasks.check_language(body)
+        custom_data = {
+            "error": error,
+            "content_page": content_page,
+            "matched": matched,
+            "mismatched": mismatched,
+            "result": ""
+        }
+        self.write(custom_data)
 
-        elif self.request.path == '/explore/compare':
-            img_base64 = tasks.compare_explore(arguments[0], arguments[1])
-            custom_data = {"data": f"{BASE64_IMG}{img_base64}"}
-            pass
+class SizeHandler(MainHandler):
+    def post(self):
+        files = self.get_files()
+        file = files[0]
+        filename, content_type, body = file["filename"], file["content_type"], file["body"]
+        error, error_msg, img_base64 = tasks.compare_size(body) 
+        custom_data = {
+            "error": error,
+            "error_msg": error_msg,
+            "result": f"{BASE64_PNG}{img_base64}",
+        }
+        self.write(custom_data)
 
-        elif self.request.path == '/contours':
-            match_results = tasks.check_explore_part(img_base64=arguments[0], pdf=file_list[0], page_number=arguments[1])
-            custom_data = {"match_results": match_results}
-            pass
-
-        elif self.request.path == '/size':
-            is_error, msg, img_base64 = tasks.compare_size(file_list[0])
-            custom_data = {"data": f"{BASE64_IMG}{img_base64}", "is_error": is_error, "msg": msg}
-            pass
-
-        elif self.request.path == '/pageNumber':
-            error_pages_base64, error_page = tasks.check_page_number(file_list[0])
-            custom_data = {"data": error_pages_base64, "error_page": error_page}
-            pass
-
-        elif self.request.path == '/table':
-            doc_base64, error_page = tasks.compare_table(file_list[0])
-            custom_data = {"data": doc_base64, "error_page": error_page}
-            pass
-
-        elif self.request.path == '/screw':
-            doc_base64 = tasks.check_screw(file_list[0])
-            custom_data = {"data": doc_base64}
-            pass
-
-        elif self.request.path == '/language':
-            is_error, language_page, matched, mismatched = tasks.check_language(file_list[0])
-            custom_data = {
-                "is_error": is_error,
-                "language_page": language_page,
-                "matched": matched,
-                "mismatched": mismatched
-            }
-            pass
-
-        elif self.request.path == '/camera':
-            img_base64_pic, img_base64_doc = tasks.check_camera(img_base64=arguments[0], pdf=file_list[0])
-            custom_data = {"img_base64_pic": f"{BASE64_IMG}{img_base64_pic}", "img_base64_doc": f"{BASE64_IMG}{img_base64_doc}"}
-            pass
-
-        elif self.request.path == '/other':
-            pass
- 
+class CameraHandler(MainHandler):
+    def post(self):
+        img_base64 = self.get_argument('img_base64')
+        files = self.get_files()
+        file = files[0]
+        body = file["body"]
+        error, img_base64_pic, img_base64_doc = tasks.check_camera(img_base64, body)
+        custom_data = {
+            "error": error,
+            "result": [img_base64_pic, img_base64_doc],
+        }
         self.write(custom_data)
 
 
@@ -154,27 +192,31 @@ class ApiHandler(tornado.websocket.WebSocketHandler):
         print("===== get_message =====")
 
         data = tornado.escape.json_decode(message)
-        file_name = data.get('fileName')
-        current_slice = data.get('currentSlice')
-        total_slice = data.get('totalSlice')
-        file_data = data.get('file')
+        type = data.get('type')
 
-        if file_name not in self.assemblers:
-            self.assemblers[file_name] = PdfAssembler(file_name, total_slice)
-        
-        assembler = self.assemblers[file_name]
-        assembler.add_slice(current_slice, file_data)
-        
-        if assembler.is_complete():
-            assembled_pdf_path = assembler.assemble_pdf()
-            if assembled_pdf_path:
-                print(f"PDF assembled: {assembled_pdf_path}")
-                # 可以在这里执行任何其他操作，例如将文件发送给客户端
-                await tasks.pdf2img_single(self, assembled_pdf_path)
-                # 然后清理已完成的 assembler
-                del self.assemblers[file_name]
+        if type == 'sendFileClip':
+            index = data.get('index')
+            file_name = data.get('fileName')
+            current_slice = data.get('currentSlice')
+            total_slice = data.get('totalSlice')
+            file_data = data.get('file')
 
-        custom_data = {"data": "return message"}
+            if file_name not in self.assemblers:
+                self.assemblers[file_name] = PDFAssembler(file_name, total_slice)
+            
+            assembler = self.assemblers[file_name]
+            assembler.add_slice(current_slice, file_data)
+            
+            if assembler.is_complete():
+                assembled_pdf_path = assembler.assemble_pdf()
+                if assembled_pdf_path:
+                    print(f"PDF assembled: {assembled_pdf_path}")
+                    # 可以在这里执行任何其他操作，例如将文件发送给客户端
+                    await tasks.pdf2img_single(self, assembled_pdf_path, index)
+                    # 然后清理已完成的 assembler
+                    del self.assemblers[file_name]
+
+        custom_data = {"data": f"return {type}"}
         self.write_message(custom_data)
 
     def on_close(self):

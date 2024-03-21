@@ -9,8 +9,7 @@ import fitz
 from langdetect import detect
 from ppocronnx.predict_system import TextSystem
 
-CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
-IMAGE_PATH = os.path.join(CURRENT_PATH, "image")
+IMAGE_PATH = './python/assets/images'
 LANGUAGES = ['EN', 'FR', 'NL', 'DE', 'JA', 'ZH', 'ES', 'AR', 'PT']
 
 
@@ -198,7 +197,7 @@ def find_mismatched_languages(doc, detected_languages, page_number):
 # 主函数
 def check_language(file):
     doc = fitz.open(stream=BytesIO(file))
-    # doc = fitz.open(file)
+
     total_pages = doc.page_count
     language_pages = get_directory(doc)
     language_page = language_pages[0][0]
@@ -213,11 +212,10 @@ def check_language(file):
     print(f"detected_languages: {detected_languages}")
     print(f"mismatched_languages: {mismatched_languages}")
 
-    matched_languages, mismatched_languages = process_language_messages(mismatched_languages, language_message,
-                                                                            total_pages)
+    matched_languages, mismatched_languages = process_language_messages(mismatched_languages, language_message,total_pages)
     print(f"matched_languages:{matched_languages}")
     print(f"mismatched_languages: {mismatched_languages}")
     doc.close()
     shutil.rmtree(IMAGE_PATH)
 
-    return is_error, mismatched_languages, matched_languages, language_page
+    return is_error, language_page, matched_languages, mismatched_languages

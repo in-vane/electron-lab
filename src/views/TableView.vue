@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import {
   NIcon,
   NButton,
+  NInput,
   NUpload,
   NUploadDragger,
   NText,
@@ -10,15 +11,19 @@ import {
   NImage,
   NSpin,
   NSpace,
+  NH3,
 } from 'naive-ui';
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
-import { CONST, handleDownload } from '@/utils';
+// import { handleDownload } from '@/utils';
 
 const upload = ref(null);
+
 const fileList = ref([]);
-const response = ref('');
+const pageNumber = ref();
+const response = ref({});
 const errorPages = ref([]);
+
 const loading = ref(false);
 
 const handleChange = (data) => {
@@ -26,20 +31,17 @@ const handleChange = (data) => {
 };
 
 const handleUpload = () => {
-  const formData = new FormData();
-  for (const item of fileList.value) {
-    formData.append(item.name, item.file);
-  }
   loading.value = true;
+  const formData = new FormData();
+  formData.append('file', fileList.value[0].file);
+  formData.append('pageNumber', pageNumber.value);
   lyla
     .post('/table', { body: formData })
     .then((res) => {
       console.log(res);
-      response.value = res.json.data;
-      errorPages.value = res.json.error_page;
-      handleDownload(response.value, 'pdf');
+      response.value = res.json;
     })
-    .catch((error) => {})
+    .catch((err) => {})
     .finally(() => {
       loading.value = false;
     });
@@ -49,6 +51,7 @@ const handleUpload = () => {
 <template>
   <n-space vertical>
     <n-spin :show="loading">
+      <n-h3 prefix="bar">1. 选择要检查的PDF文件</n-h3>
       <n-upload
         multiple
         ref="upload"
@@ -70,11 +73,25 @@ const handleUpload = () => {
           </n-p>
         </n-upload-dragger>
       </n-upload>
-      <n-button @click="handleUpload"> 开始检查 </n-button>
+      <n-space>
+        <n-input
+          v-model:value="pageNumber"
+          type="text"
+          placeholder="爆炸图的页码数"
+        />
+        <n-button @click="handleUpload"> 开始检查 </n-button>
+      </n-space>
     </n-spin>
+    <n-h3 prefix="bar">2. 检查结果</n-h3>
     <n-p v-show="response.length">出错表格所在的页码为: {{ errorPages }}</n-p>
   </n-space>
 </template>
 
 <style scoped>
+.n-space {
+  gap: 24px 12px !important;
+}
+.n-h3 {
+  margin-bottom: 8px;
+}
 </style>

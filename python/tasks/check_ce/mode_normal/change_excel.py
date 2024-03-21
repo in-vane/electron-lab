@@ -3,20 +3,15 @@ import base64
 from io import BytesIO
 
 import fitz
+import jpype
 import openpyxl
 from openpyxl.styles import Border, Side
 
-import os
-import jpype
-
-
 from .get_table_message import all
 
-CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
-EXCEL_PATH = os.path.join(CURRENT_PATH, "temp.xlsx")
-IMAGE_PATH = os.path.join(CURRENT_PATH, 'temp.png')
-PDF_PATH1 = os.path.join(CURRENT_PATH, '2.pdf')
-PDF_PATH2 = os.path.join(CURRENT_PATH, 'temp.pdf')
+EXCEL_PATH = './python/assets/excel/temp.xlsx'
+IMAGE_PATH = './python/assets/images/temp.png'
+PDF_PATH = './python/assets/pdf/temp.pdf'
 
 
 def change_excel(wb, work_table, message_dict):
@@ -91,7 +86,7 @@ def convert_excel_sheet_to_pdf(excel_file, sheet_name):
     saveOptions.setOnePagePerSheet(True)
 
     # 保存为PDF
-    workbook.save(PDF_PATH2, saveOptions)
+    workbook.save(PDF_PATH, saveOptions)
 
     # 关闭JVM
     jpype.shutdownJVM()
@@ -126,15 +121,14 @@ def checkTags(excel_file, pdf_file):
     # doc = fitz.open(pdf_file)
     # wb = openpyxl.load_workbook(excel_file)
     doc = fitz.open(stream=BytesIO(pdf_file))
-    doc.save(PDF_PATH1)
     wb = openpyxl.load_workbook(filename=BytesIO(excel_file))
     wb.save(EXCEL_PATH)
-    message_dict = all(wb, work_table, doc, PDF_PATH1)
+    message_dict = all(wb, work_table, doc)
     change_excel(wb, work_table, message_dict)
-    # 将excel转化为pdf，保存到PDF_PATH2
+    # 将excel转化为pdf，保存到PDF_PATH
     convert_excel_sheet_to_pdf(EXCEL_PATH, work_table)
     # 将excel转化为pdf，保存到PDF_PATG
-    convert_pdf_page_to_image(PDF_PATH2, IMAGE_PATH)
+    convert_pdf_page_to_image(PDF_PATH, IMAGE_PATH)
 
     with open(IMAGE_PATH, "rb") as image_file:
         image_data = image_file.read()
@@ -144,11 +138,9 @@ def checkTags(excel_file, pdf_file):
     # 将Base64字节对象转换为字符串
     image_base64 = base64_encoded_data.decode('utf-8')
     print(image_base64)
-    doc.close()
     os.remove(EXCEL_PATH)
-    os.remove(IMAGE_PATH)
-    os.remove(PDF_PATH1)
-    os.remove(PDF_PATH2)
+    # os.remove(IMAGE_PATH)
+    # os.remove(PDF_PATH)
     # Close the workbook
     #     # wb.close()
 

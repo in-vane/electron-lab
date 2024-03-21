@@ -13,17 +13,23 @@ import {
 } from 'naive-ui';
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
+import { img_base64 } from '@/utils/const';
+import camera_result from '@/assets/camera_result.jpeg'
 
 const upload = ref(null);
 const fileList = ref([]);
-const response = ref([]);
-const loading = ref(false);
-const cropImg = ref('');
+const cropImg = ref(img_base64);
 const mediaTrack = ref(null);
+const response = ref({
+  error: true,
+  result: [camera_result],
+});
+const loading = ref(false);
 
 const LOGI_CAMERA_LABLE = 'USB Camera VID:1133 PID:2085 (046d:0825)';
-const VIDEO_WIDTH = 640;
-const VIDEO_HEIGHT = 480;
+const YLR_CAMERA_LABLE = 'YLR 60FPS Camera (1d6c:0103)';
+const VIDEO_WIDTH = 1080 / 3;
+const VIDEO_HEIGHT = 1920 / 3;
 const video = ref(null);
 const canvas = document.createElement('canvas');
 canvas.width = VIDEO_WIDTH;
@@ -38,18 +44,15 @@ const handleUpload = () => {
   if (fileList.value.length < 2) {
   }
   const formData = new FormData();
-  for (const item of fileList.value) {
-    formData.append(item.name, item.file);
-  }
-  formData.append('cropImg', cropImg.value);
+  formData.append('file', fileList.value[0].file);
+  formData.append('img_base64', cropImg.value.split(',')[1]);
   loading.value = true;
   lyla
     .post('/camera', { body: formData })
     .then((res) => {
-      response.value.push(res.json.img_base64_doc);
-      response.value.push(res.json.img_base64_pic);
+      response.value = res.json;
     })
-    .catch((error) => {})
+    .catch((err) => {})
     .finally(() => {
       loading.value = false;
       window.scrollTo({
@@ -62,7 +65,7 @@ const handleUpload = () => {
 const handleOpenCamera = () => {
   loading.value = true;
   navigator.mediaDevices.enumerateDevices().then((devices) => {
-    const i = devices.findIndex((_) => _.label == LOGI_CAMERA_LABLE);
+    const i = devices.findIndex((_) => _.label == YLR_CAMERA_LABLE);
     navigator.mediaDevices
       .getUserMedia({
         video: {
@@ -154,7 +157,12 @@ const handleCloseCamera = () => {
         :height="VIDEO_HEIGHT"
         :src="cropImg"
       />
-      <n-image v-for="(img, i) in response" :key="i" :src="img" width="200px" />
+      <n-image
+        v-for="(img, i) in response.result"
+        :key="i"
+        :src="img"
+        width="200px"
+      />
     </n-space>
   </n-space>
 </template>

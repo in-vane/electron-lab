@@ -1,1 +1,0 @@
-from .main import check_explore_part

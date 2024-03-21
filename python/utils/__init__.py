@@ -1,1 +1,1 @@
-from .websocket import PdfAssembler
+from .websocket import PDFAssembler

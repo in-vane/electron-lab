@@ -10,6 +10,7 @@ from PIL import Image
 
 
 DPI = 300
+BASE64_JPG = 'data:image/jpeg;base64,'
 
 
 class ocrImg2imgDifference(object):
@@ -318,8 +319,6 @@ class ocrImg2ImgDifference(ocrImg2imgDifference):
 
 
 def check_camera(img_base64, pdf):
-    # img1 = cv2.imread('a2.jpg')
-    # img2 = cv2.imread('b2.jpg')
     # 解码 base64 字符串为图像数据
     image_data_1 = base64.b64decode(img_base64)
     nparr_1 = np.frombuffer(image_data_1, np.uint8)
@@ -335,11 +334,11 @@ def check_camera(img_base64, pdf):
     diff = ocrImg2ImgDifference(['en', 'hu'])
     before_img1, after_img2 = diff.returnMarkImageImg2img(img1, img2)
 
-    _, image_buffer = cv2.imencode('.jpg', before_img1)
+    _, image_buffer = cv2.imencode('.jpeg', before_img1)
     image_base64_1 = base64.b64encode(image_buffer).decode('utf-8')
-    _, image_buffer = cv2.imencode('.jpg', after_img2)
+    _, image_buffer = cv2.imencode('.jpeg', after_img2)
     image_base64_2 = base64.b64encode(image_buffer).decode('utf-8')
-    # cv2.imwrite("aa.jpg", before_img1)
-    # cv2.imwrite("bb.jpg", after_img2)
     
-    return image_base64_1, image_base64_2
+    error = True
+
+    return error, f"{BASE64_JPG}{image_base64_1}", f"{BASE64_JPG}{image_base64_2}"

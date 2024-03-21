@@ -14,42 +14,36 @@ import {
 } from 'naive-ui';
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
+import { scrollInneHeight } from '@/utils';
 
 const upload = ref(null);
+
 const fileList = ref([]);
-const response = ref('');
-const isError = ref(false);
-const msg = ref('');
+const response = ref({
+  error: false,
+  error_msg: '',
+  result: '',
+});
+
 const loading = ref(false);
 
 const handleChange = (data) => {
+  console.log(data)
   fileList.value = data.fileList;
 };
 
 const handleUpload = () => {
-  if (fileList.value.length < 2) {
-  }
-  const formData = new FormData();
-  for (const item of fileList.value) {
-    formData.append(item.name, item.file);
-  }
   loading.value = true;
+  const formData = new FormData();
+  formData.append('file', fileList.value[0].file);
   lyla
     .post('/size', { body: formData })
     .then((res) => {
       console.log(res);
-      response.value = res.json.data;
-      isError.value = res.json.is_error;
-      msg.value = res.json.msg;
+      response.value = res.json;
     })
-    .catch((error) => {})
-    .finally(() => {
-      loading.value = false;
-      window.scrollTo({
-        top: window.innerHeight,
-        behavior: 'smooth',
-      });
-    });
+    .catch((err) => {})
+    .finally(() => (loading.value = false));
 };
 </script>
 
@@ -85,16 +79,16 @@ const handleUpload = () => {
         </n-upload-dragger>
       </n-upload>
     </n-spin>
-    <div v-show="msg">
+    <div v-show="response.result">
       <n-h3
         prefix="bar"
-        :class="`n-h3-${isError ? 'error' : 'success'}`"
-        :type="isError ? 'error' : 'success'"
+        :class="`n-h3-${response.error ? 'error' : 'success'}`"
+        :type="response.error ? 'error' : 'success'"
       >
-        检测结果: {{ msg }}
+        检测结果: {{ response.error_msg }}
       </n-h3>
+      <n-image :src="response.result" alt="image" width="100%" />
     </div>
-    <n-image v-show="response" :src="response" alt="image" width="100%" />
   </n-space>
 </template>
 

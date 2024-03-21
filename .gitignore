@@ -30,5 +30,7 @@ dist-python
 build
 **/__pycache__
 **/all-MiniLM-L6-v2
+python/assets/images/*
+python/assets/pdf/*
 
 *.tsbuildinfo

@@ -3,6 +3,7 @@ import shutil
 import base64
 import io
 from PIL import Image
+from io import BytesIO
 
 import fitz
 import pandas as pd
@@ -241,6 +242,8 @@ def find_matching_table(doc, exact_pagenumber, table_character, ):
     add_annotation_with_fitz(doc, annotations)
 
     return mismatched_pages
+
+
 def get_error_pages_as_base64(error_pages, doc):
     """
     将PDF中指定的错误页转换为图片，获取其字节流并转化为base64字符串。
@@ -267,15 +270,13 @@ def get_error_pages_as_base64(error_pages, doc):
 
     return base64_images
 
+
 # 主函数
 def compare_table(file, page_number):
     # 打开PDF文件
-    doc =fitz.open(file)
-    # doc = fitz.open(stream=BytesIO(file))
+    # doc =fitz.open(file)
+    doc = fitz.open(stream=BytesIO(file))
     doc.save(PDF_PATH)
-
-
-
     # 获取标准表格
     filtered_tables = read_and_filter_tables(page_number)
     if filtered_tables:
@@ -312,4 +313,4 @@ def compare_table(file, page_number):
 
     return images_base64, error_pages
 # 测试接口
-compare_table('1.pdf',2)
+# compare_table('1.pdf',2)

@@ -1,9 +1,28 @@
+import os
 import base64
-from io import BytesIO
 
-import fitz
+import cv2
+import numpy as np
 
-class PdfAssembler:
+
+CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
+IMAGE_PATH = os.path.join(CURRENT_PATH, "images")
+
+
+def img2base64(img):
+    _, image_buffer = cv2.imencode('.jpg', img)
+    image_base64 = base64.b64encode(image_buffer).decode('utf-8')
+    return image_base64
+
+
+def base642cv2img(base64_data):
+    image_data = base64.b64decode(base64_data)
+    nparr = np.frombuffer(image_data, np.uint8)
+    image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    return image
+
+
+class PDFAssembler:
     def __init__(self, file_name, total_slices):
         self.file_name = file_name
         self.total_slices = total_slices
@@ -27,7 +46,8 @@ class PdfAssembler:
             b64 = slice_data.split(",", 1)
             self.received_data += base64.b64decode(b64[1])
         
-        output_path = self.file_name
+        # output_path = self.file_name
+        output_path = './python/assets/pdf/' + self.file_name
         with open(output_path, "wb") as output_file:
             output_file.write(self.received_data)
         

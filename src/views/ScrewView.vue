@@ -12,14 +12,18 @@ import {
   NSpin,
   NSpace,
   NH3,
+  NDataTable,
 } from 'naive-ui';
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
-import { handleDownload } from '@/utils';
+// import { handleDownload } from '@/utils';
 
 const upload = ref(null);
 const fileList = ref([]);
-const response = ref([]);
+const response = ref({
+  error: false,
+  result: [],
+});
 const loading = ref(false);
 
 const handleChange = (data) => {
@@ -27,34 +31,96 @@ const handleChange = (data) => {
 };
 
 const handleUpload = () => {
-  const formData = new FormData();
-  for (const item of fileList.value) {
-    formData.append(item.name, item.file);
-  }
   loading.value = true;
+  const formData = new FormData();
+  formData.append('file', fileList.value[0].file);
   lyla
     .post('/screw', { body: formData })
     .then((res) => {
       console.log(res);
-      // response.value = res.json.data;
-      handleDownload(res.json.data, 'excel');
+      response.value = res.json;
     })
-    .catch((error) => {})
+    .catch((err) => {})
     .finally(() => {
       loading.value = false;
     });
 };
+
+const columns = [
+  { title: '螺丝型号', key: 'type' },
+  { title: '螺丝包总计数', key: 'total' },
+  { title: '步骤图总计数', key: 'step_total' },
+  {
+    title: '步骤图螺丝计数',
+    key: 'step_count',
+    render: (_) => _.step_count.join(' / '),
+  },
+  {
+    title: '步骤图所在页数',
+    key: 'step_page_no',
+    render: (_) => _.step_page_no.join(' / '),
+  },
+];
+const mock = [
+  {
+    type: 'A',
+    total: 4,
+    step_total: 4,
+    step_count: [4],
+    step_page_no: [50],
+  },
+  {
+    type: 'B',
+    total: 16,
+    step_total: 16,
+    step_count: [2, 6, 4, 2, 2],
+    step_page_no: [43, 44, 46, 47, 48],
+  },
+  {
+    type: 'C',
+    total: 2,
+    step_total: 2,
+    step_count: [2],
+    step_page_no: [49],
+  },
+  {
+    type: 'D',
+    total: 10,
+    step_total: 10,
+    step_count: [5, 5],
+    step_page_no: [46, 47],
+  },
+  {
+    type: 'E',
+    total: 16,
+    step_total: 16,
+    step_count: [8, 8],
+    step_page_no: [46, 47],
+  },
+  {
+    type: 'G',
+    total: 4,
+    step_total: 4,
+    step_count: [4],
+    step_page_no: [50],
+  },
+
+  {
+    type: 'F',
+    total: 11,
+    step_total: 12,
+    step_count: [4, 2, 2, 2, 2],
+    step_page_no: [45, 47, 48, 49, 50],
+  },
+];
+const renderRowClass = (rowData) =>
+  rowData.total == rowData.step_total ? '' : 'row-error';
 </script>
 
 <template>
   <n-space vertical>
-    <n-space justify="space-between">
-      <n-h3 prefix="bar">选择要检查的PDF文件</n-h3>
-      <n-button type="primary" :ghost="true" @click="handleUpload">
-        开始检查
-      </n-button>
-    </n-space>
     <n-spin :show="loading">
+      <n-h3 prefix="bar">1. 上传PDF</n-h3>
       <n-upload
         multiple
         ref="upload"
@@ -76,25 +142,32 @@ const handleUpload = () => {
           </n-p>
         </n-upload-dragger>
       </n-upload>
+      <n-button type="primary" :ghost="true" @click="handleUpload">
+        开始检查
+      </n-button>
     </n-spin>
-    <!-- <n-h3 v-show="response.length" prefix="bar">检查结果</n-h3>
-    <n-image-group>
-      <n-space>
-        <n-image
-          v-for="(img, i) in response"
-          :key="i"
-          :src="img"
-          alt="image"
-          height="200px"
-        />
-      </n-space>
-    </n-image-group> -->
+    <div>
+      <n-h3 prefix="bar">2. 零件计数检测结果</n-h3>
+      <n-data-table
+        size="small"
+        :columns="columns"
+        :data="mock"
+        :bordered="false"
+        :row-class-name="renderRowClass"
+      />
+    </div>
   </n-space>
 </template>
 
 <style scoped>
-.n-image {
-  border: solid 1px rgb(224, 224, 230);
-  border-radius: 3px;
+.n-space {
+  gap: 24px 12px !important;
+}
+.n-h3 {
+  margin-bottom: 8px;
+}
+:deep(.row-error td) {
+  color: rgb(208, 48, 80);
+  background: rgba(208, 48, 80, 0.2);
 }
 </style>
