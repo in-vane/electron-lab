@@ -5,9 +5,8 @@ import fitz
 import re
 
 
-def annotate_page_number_issues(doc, printed_page_numbers, physical_page_numbers):
+def annotate_page_number_issues(doc, physical_page_numbers, issues):
     # 检查页码问题
-    issues = check_page_number_issues(printed_page_numbers, physical_page_numbers)
     error_pages_base64 = []
 
     # 在有问题的页面上添加注释
@@ -27,7 +26,7 @@ def annotate_page_number_issues(doc, printed_page_numbers, physical_page_numbers
 
         # 将图像转换为base64编码
         buffer = BytesIO()
-        img.save(buffer, format="PNG")  # 可以选择PNG或者JPEG格式
+        img.save(buffer, format="JPEG")  # 可以选择PNG或者JPEG格式
         img_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
         buffer.close()
         error_pages_base64.append(f"data:image/jpeg;base64,{img_base64}")
@@ -37,7 +36,7 @@ def annotate_page_number_issues(doc, printed_page_numbers, physical_page_numbers
     # 将字节流进行base64编码
     # doc_base64 = base64.b64encode(doc_bytes).decode('utf-8')
 
-    return error_pages_base64, issues
+    return error_pages_base64
 
 
 def check_page_number_issues(printed_page_numbers, physical_page_numbers):
@@ -101,7 +100,7 @@ def extract_page_numbers(doc):
     return printed_page_numbers
 
 
-# 示例用法
+# 主函数
 def check_page_number(file):
     doc = fitz.open(stream=BytesIO(file))
     
@@ -111,9 +110,10 @@ def check_page_number(file):
     printed_page_numbers = extract_page_numbers(doc)
     # 对比两个页码表
     issues = check_page_number_issues(printed_page_numbers, physical_page_numbers)
+    is_error = False if len(issues) == 0 else True
     # 在错误的页码附近标注错误
-    error_pages_base64, issues = annotate_page_number_issues(doc, printed_page_numbers, physical_page_numbers)
+    error_pages_base64 = annotate_page_number_issues(doc, physical_page_numbers, issues)
 
     doc.close()
 
-    return error_pages_base64, issues
+    return is_error, issues, error_pages_base64

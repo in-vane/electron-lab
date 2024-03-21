@@ -15,12 +15,16 @@ import {
 } from 'naive-ui';
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
-// import { handleDownload } from '@/utils';
 
 const upload = ref(null);
+
 const fileList = ref([]);
-const response = ref([]);
-const errorPages = ref([]);
+const response = ref({
+  error: false,
+  error_page: [],
+  result: [],
+});
+
 const loading = ref(false);
 
 const handleChange = (data) => {
@@ -28,20 +32,16 @@ const handleChange = (data) => {
 };
 
 const handleUpload = () => {
-  const formData = new FormData();
-  for (const item of fileList.value) {
-    formData.append(item.name, item.file);
-  }
   loading.value = true;
+  const formData = new FormData();
+  formData.append('file', fileList.value[0].file);
   lyla
     .post('/pageNumber', { body: formData })
     .then((res) => {
       console.log(res);
-      response.value = res.json.data;
-      errorPages.value = res.json.error_page;
-      // handleDownload(response.value);
+      response.value = res.json;
     })
-    .catch((error) => {})
+    .catch((err) => {})
     .finally(() => {
       loading.value = false;
     });
@@ -50,12 +50,7 @@ const handleUpload = () => {
 
 <template>
   <n-space vertical>
-    <n-space justify="space-between">
-      <n-h3 prefix="bar">选择要检查的PDF文件</n-h3>
-      <n-button type="primary" :ghost="true" @click="handleUpload">
-        开始检查
-      </n-button>
-    </n-space>
+    <n-h3 prefix="bar">选择要检查的PDF文件</n-h3>
     <n-spin :show="loading">
       <n-upload
         multiple
@@ -78,19 +73,24 @@ const handleUpload = () => {
           </n-p>
         </n-upload-dragger>
       </n-upload>
+      <n-button type="primary" :ghost="true" @click="handleUpload">
+        开始检查
+      </n-button>
     </n-spin>
-    <n-h3 v-show="response.length" prefix="bar">页码错误的页面</n-h3>
-    <n-image-group>
-      <n-space>
-        <n-image
-          v-for="(img, i) in response"
-          :key="i"
-          :src="img"
-          alt="image"
-          height="200px"
-        />
-      </n-space>
-    </n-image-group>
+    <div v-show="response.error">
+      <n-h3 prefix="bar">页码错误的页面</n-h3>
+      <n-image-group>
+        <n-space>
+          <n-image
+            v-for="(img, i) in response.result"
+            :key="i"
+            :src="img"
+            alt="image"
+            height="200px"
+          />
+        </n-space>
+      </n-image-group>
+    </div>
   </n-space>
 </template>
 

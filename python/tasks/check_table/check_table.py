@@ -1,5 +1,4 @@
 import os
-import shutil
 import base64
 from io import BytesIO
 
@@ -7,12 +6,8 @@ import fitz
 import pandas as pd
 from tabula import read_pdf
 
-
-CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
-PDF_PATH = os.path.join(CURRENT_PATH, "temp.pdf")
-# IMAGE_PATH = os.path.join(CURRENT_PATH, "image")
-# MODEL_PATH = os.path.join(CURRENT_PATH, "model.pth")
-CSV_PATH = os.path.join(CURRENT_PATH, "exact_table.csv")
+PDF_PATH = './python/assets/pdf/temp.pdf'
+CSV_PATH = './python/assets/csv/exact_table.csv'
 SUCCESS = 0
 ERROR_NO_EXPLORED_VIEW = 1
 
@@ -244,59 +239,29 @@ def find_matching_table(doc, exact_pagenumber, table_character, ):
 
 # 主函数
 def compare_table(file, page_number):
-    # 打开PDF文件
-    # doc =fitz.open(file)
     doc = fitz.open(stream=BytesIO(file))
     doc.save(PDF_PATH)
 
-    # 从PDF中获取图像
-    # get_image(doc)
-
-    # 使用模型预测图像，获取页号
-    # result = predict()
-    #if len(result) == 0:
-    #    print("模型没预测出有爆炸图")
-    #    return ERROR_NO_EXPLORED_VIEW
-
-    # page_number = list(result.keys())[0]
-
     # 获取标准表格
     filtered_tables = read_and_filter_tables(page_number)
-    if filtered_tables:
-        print("在该页找到标准表格了")
-    else:
-        print("在该页没找到标准表格了")
-        # page_number = int(page_number) + 1
-        # page_number = str(page_number)
-        # filtered_tables = read_and_filter_tables(page_number)
+    print("在该页找到标准表格了" if filtered_tables else "在该页没找到标准表格")
 
     # 假设 filtered_tables 是之前从 PDF 中提取并筛选出的表格列表
     # 下面的代码会遍历这些表格，打印出它们的行数和列数，并将它们存储为 CSV 文件
     table_character = []
     for i, table in enumerate(filtered_tables):
-        print(f"Table {i + 1}:")
-        print(f"Number of rows: {table.shape[0]}")
-        print(f"Number of columns: {table.shape[1]}")
+        print(f"Table {i + 1}: rows {table.shape[0]}, columns {table.shape[1]}")
         table_character.append(table.shape[0])
         table_character.append(table.shape[1])
         table.to_csv(CSV_PATH, index=False)
 
-    # exact_pagenumber = None  # 替换为起始页码
-    # for key in result.keys():
-    #    exact_pagenumber = int(key)
-
     error_pages = find_matching_table(doc, page_number, table_character)
 
-    # 将文档转换成字节流
     doc_bytes = doc.write()
-    # 将字节流进行base64编码
     doc_base64 = base64.b64encode(doc_bytes).decode('utf-8')
 
     doc.close()
     os.remove(PDF_PATH)
     os.remove(CSV_PATH)
-    # shutil.rmtree(IMAGE_PATH)
 
     return doc_base64, error_pages
-# 测试接口
-# compare_table('1.pdf',2)

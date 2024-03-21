@@ -12,12 +12,9 @@ from collections import defaultdict
 from ppocronnx.predict_system import TextSystem
 
 
-CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
-PDF_PATH = os.path.join(CURRENT_PATH, "temp.pdf")
-IMAGE_PATH = os.path.join(CURRENT_PATH, "image")
-CSV_PATH = os.path.join(CURRENT_PATH, "selected_table.csv")
-
-
+PDF_PATH = './python/assets/pdf/temp.pdf'
+IMAGE_PATH = './python/assets/image'
+CSV_PATH = './python/assets/csv/selected_table.csv'
 
 
 def find_target_table(doc):
@@ -229,33 +226,29 @@ def check_total_and_step(doc):
             print(f"缺少的字符: {key} 在 letter_counts 中不存在")
             missing_chars[key] = result_dict[key]
 
-    return count_mismatch, extra_chars, missing_chars, page_num, letter_count, letter_pageNumber, result_dict
+    return count_mismatch, letter_count, letter_pageNumber, result_dict
 
 def create_dicts(result_dict, count_mismatch, letter_count, letter_pageNumber):
-    mismatch_dict = {}
-    match_dict = {}
+    mismatch_dict = []
+    match_dict = []
 
     for key, value in count_mismatch.items():
-        mismatch_dict[key] = {
-            '螺丝包总数量': value['expected'],
-            '步骤螺丝总数量': value['actual'],
-            '步骤螺丝个数': letter_count[key],
-            '步骤螺丝页号': letter_pageNumber[key]
-        }
-
-        # 在这个例子中，如果存在不匹配，实际数量比预期少一个，为了简化处理，直接添加一个额外的计数和页码（示意）
-        if value['actual'] < value['expected']:
-            mismatch_dict[key]['步骤螺丝个数'].append(1)  # 假定额外的一个数量
-            mismatch_dict[key]['步骤螺丝页号'].append(mismatch_dict[key]['步骤螺丝页号'][-1] + 1)  # 假定下一个连续的页码
-
+        mismatch_dict.append({
+            'type': key,
+            'total': value['expected'],
+            'step_total': value['actual'],
+            'step_count': letter_count[key],
+            'step_page_no': letter_pageNumber[key]
+        })
     for key, value in result_dict.items():
         if key not in count_mismatch:
-            match_dict[key] = {
-                '螺丝包总数量': value,
-                '步骤螺丝总数量': value,  # 假定步骤螺丝总数量与螺丝包总数量相同
-                '步骤螺丝个数': letter_count.get(key, []),
-                '步骤螺丝页号': letter_pageNumber.get(key, [])
-            }
+            match_dict.append({
+                'type': key,
+                'total': value,
+                'step_total': value,
+                'step_count': letter_count.get(key, []),
+                'step_page_no': letter_pageNumber.get(key, [])
+            }) 
 
     return mismatch_dict, match_dict
 
@@ -269,11 +262,10 @@ def check_screw(file):
     if not os.path.isdir(IMAGE_PATH):
         os.makedirs(IMAGE_PATH)
 
-    count_mismatch, extra_chars, missing_chars, page_num, letter_count, letter_pageNumber, result_dict = check_total_and_step(
-        doc)
-
-    print(f"count_mismatch = {count_mismatch}")
+    count_mismatch, letter_count, letter_pageNumber, result_dict = check_total_and_step(doc)
     mismatch_dict, match_dict = create_dicts(result_dict, count_mismatch, letter_count, letter_pageNumber)
+    
+    print(f"count_mismatch = {count_mismatch}")
     print("Mismatch Dict:", mismatch_dict)
     print("Match Dict:", match_dict)
 
@@ -281,8 +273,7 @@ def check_screw(file):
     os.remove(CSV_PATH)
     os.remove(PDF_PATH)
     shutil.rmtree(IMAGE_PATH)
-    return match_dict, mismatch_dict
 
+    result = match_dict.extend(mismatch_dict)
 
-# 测试后端接口,打开266行代码,并且打开下面一行代码，传入测试文件
-# check_screw('1.pdf')
+    return result

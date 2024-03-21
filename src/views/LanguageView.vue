@@ -10,6 +10,8 @@ import {
   NImage,
   NSpin,
   NSpace,
+  NH3,
+  NDataTable,
 } from 'naive-ui';
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
@@ -29,20 +31,16 @@ const handleChange = (data) => {
 };
 
 const handleUpload = () => {
-  if (fileList.value.length < 2) {
-  }
-  const formData = new FormData();
-  for (const item of fileList.value) {
-    formData.append(item.name, item.file);
-  }
   loading.value = true;
+  const formData = new FormData();
+  formData.append('file', fileList.value[0].file);
   lyla
     .post('/language', { body: formData })
     .then((res) => {
       console.log(res);
-      const _ = res.json;
+      response = res.json;
     })
-    .catch((error) => {})
+    .catch((err) => {})
     .finally(() => {
       loading.value = false;
     });
@@ -52,6 +50,7 @@ const handleUpload = () => {
 <template>
   <n-space vertical>
     <n-spin :show="loading">
+      <n-h3 prefix="bar">1. 上传PDF</n-h3>
       <n-upload
         multiple
         ref="upload"
@@ -75,12 +74,28 @@ const handleUpload = () => {
       </n-upload>
       <n-button @click="handleUpload"> 开始检查 </n-button>
     </n-spin>
-    <n-p v-show="response">{{ response }}</n-p>
+    <div>
+      <n-h3 prefix="bar">2. 语言顺序检测结果</n-h3>
+      <n-data-table
+        size="small"
+        :columns="columns"
+        :data="mock"
+        :bordered="false"
+        :row-class-name="renderRowClass"
+      />
+    </div>
   </n-space>
 </template>
 
 <style scoped>
-.n-p {
-  white-space: pre-line;
+.n-space {
+  gap: 24px 12px !important;
+}
+.n-h3 {
+  margin-bottom: 8px;
+}
+:deep(.row-error td) {
+  color: rgb(208, 48, 80);
+  background: rgba(208, 48, 80, 0.2);
 }
 </style>

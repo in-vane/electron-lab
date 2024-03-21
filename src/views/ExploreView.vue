@@ -18,33 +18,45 @@ import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
 import VuePictureCropper, { cropper } from 'vue-picture-cropper';
 import { handleDownload } from '@/utils';
-import bgGray from '@/assets/bgGray.png';
 
 const message = useMessage();
+const upload = ref(null);
+const ws = ref(null);
+const isComplete = ref([false, false]);
+
 const fileList = ref([]);
 const images = ref([[], []]);
-const cropend = ref([]);
 const current = ref([0, 0]);
-const compared = ref('');
-const upload = ref(null);
+const cropend = ref([]);
+const response = ref({ result: '' });
+
 const loadingUpload = ref(false);
 const loadingCompare = ref(false);
-const ws = ref(null);
 
 const openWebsocket = () => {
+  loadingUpload.value = true;
   const api_url = 'ws://localhost:4242/api';
   const websocket = new WebSocket(api_url);
 
   websocket.onopen = (e) => {
     console.log('connected: ', e);
+    sendMessage(0);
+    sendMessage(1);
   };
   websocket.onclose = (e) => {
     console.log('disconnected: ', e);
+    loadingUpload.value = false;
   };
   websocket.onmessage = (e) => {
     const data = JSON.parse(e.data);
-    if (data.img_base64) {
-      images.value[0].push(data.img_base64);
+    if (data.type == 'sendFileClip') {
+      images.value[data.index].push(data.img_base64);
+      if (data.current == data.total) {
+        isComplete.value[data.index] = true;
+      }
+      if (isComplete.value.every((_) => _)) {
+        ws.value.close();
+      }
     }
   };
   websocket.onerror = (e) => {
@@ -54,27 +66,25 @@ const openWebsocket = () => {
   ws.value = websocket;
 };
 
-const closeWebsocket = () => {
-  ws.value.close();
-};
-
-const sendMessage = () => {
-  const file = fileList.value[0].file;
+const sendMessage = (index) => {
+  const file = fileList.value[index].file;
+  const fileName = file.name;
   const size = file.size;
   const shardSize = 1024 * 1024; // 以1MB为一个分片
   const shardCount = Math.ceil(size / shardSize); // 总片数
-  console.log(size, shardSize, shardCount);
 
   for (let i = 0; i < shardCount; i++) {
     const start = i * shardSize;
     const end = Math.min(size, start + shardSize);
     const fileClip = file.slice(start, end);
     const reader = new FileReader();
-    reader.onload = async (e) => {
+    reader.onload = (e) => {
       const blob = reader.result;
-      await ws.value.send(
+      ws.value.send(
         JSON.stringify({
-          fileName: file.name,
+          type: 'sendFileClip',
+          index,
+          fileName,
           currentSlice: i + 1,
           totalSlice: shardCount,
           file: blob,
@@ -100,29 +110,11 @@ const handleGetCrop = () => {
 };
 
 const handleUpload = () => {
-  // if (fileList.value.length != 2) {
-  //   message.info('请上传两份文件');
-  //   return;
-  // }
-  const formData = new FormData();
-  for (const item of fileList.value) {
-    formData.append(item.name, item.file);
+  if (!fileList.value.length) {
+    message.info('请选择文件');
+    return;
   }
-  loadingUpload.value = true;
-  lyla
-    .post('/explore/pdf2img_single', { body: formData })
-    .then((res) => {
-      console.log(res);
-      images.value = res.json.data;
-    })
-    .catch((error) => {})
-    .finally(() => {
-      loadingUpload.value = false;
-      window.scrollTo({
-        top: window.innerHeight,
-        behavior: 'smooth',
-      });
-    });
+  openWebsocket();
 };
 
 const handleCompare = () => {
@@ -130,18 +122,15 @@ const handleCompare = () => {
     message.info('两张图都需要选择区域，点击缩略图切换！');
     return;
   }
-
-  const formData = new FormData();
-  cropend.value.forEach((_, i) => {
-    formData.append(`file_${i}`, _);
-  });
-
   loadingCompare.value = true;
+  const formData = new FormData();
+  formData.append('img_1', cropend.value[0].split(',')[1]);
+  formData.append('img_2', cropend.value[1].split(',')[1]);
   lyla
-    .post('/explore/compare', { body: formData })
+    .post('/explore', { body: formData })
     .then((res) => {
       console.log(res);
-      compared.value = res.json.data;
+      response.value = res.json;
     })
     .catch((error) => {})
     .finally(() => {
@@ -154,14 +143,28 @@ const handleCompare = () => {
 };
 
 const handleSaveResult = () => {
-  const data = compared.value.split(',')[1];
-  handleDownload(data, 'img');
+  // const data = response.value.split(',')[1];
+  // handleDownload(data, 'img');
 };
 
 const handleKeyDownEsc = (e) => {
   if (e.keyCode == 27) {
     cropper.clear();
   }
+};
+
+const boxStyle = {
+  height: '400px',
+  width: '100%',
+  border: '1px dashed rgb(224, 224, 230)',
+  borderRadius: '3px',
+};
+
+const options = {
+  viewMode: 1,
+  dragMode: 'move',
+  autoCrop: true,
+  cropend: handleGetCrop,
 };
 
 onMounted(() => {
@@ -175,54 +178,45 @@ onUnmounted(() => {
 
 <template>
   <div>
-    <n-button @click="openWebsocket">Open</n-button>
-    <n-button @click="sendMessage">Send</n-button>
-    <n-button @click="closeWebsocket">Close</n-button>
     <n-space vertical>
       <!-- upload -->
-      <n-space justify="space-between">
+      <div>
         <n-h3 prefix="bar">1. 上传PDF</n-h3>
-        <n-button type="primary" :ghost="true" @click="handleUpload">
-          开始转换
-        </n-button>
-      </n-space>
-      <n-spin :show="loadingUpload">
-        <n-upload
-          multiple
-          ref="upload"
-          accept=".pdf"
-          :max="2"
-          :default-upload="false"
-          v-model:file-list="fileList"
-          @change="handleChange"
-        >
-          <n-upload-dragger>
-            <div style="margin-bottom: 12px">
-              <n-icon size="48" :depth="3">
-                <archive-icon />
-              </n-icon>
-            </div>
-            <n-text style="font-size: 16px">
-              点击或者拖动文件到该区域来上传
-            </n-text>
-            <n-p depth="3" style="margin: 8px 0 0 0">
-              检查两份pdf中爆炸图与安装图不一致的部分
-            </n-p>
-          </n-upload-dragger>
-        </n-upload>
-      </n-spin>
+        <n-spin :show="loadingUpload">
+          <n-upload
+            multiple
+            ref="upload"
+            accept=".pdf"
+            :max="2"
+            :default-upload="false"
+            v-model:file-list="fileList"
+            @change="handleChange"
+          >
+            <n-upload-dragger>
+              <div style="margin-bottom: 12px">
+                <n-icon size="48" :depth="3">
+                  <archive-icon />
+                </n-icon>
+              </div>
+              <n-text style="font-size: 16px">
+                点击或者拖动文件到该区域来上传
+              </n-text>
+              <n-p depth="3" style="margin: 8px 0 0 0">
+                检查两份pdf中爆炸图与安装图不一致的部分
+              </n-p>
+            </n-upload-dragger>
+          </n-upload>
+          <n-button type="primary" @click="handleUpload"> 开始转换 </n-button>
+        </n-spin>
+      </div>
       <!-- preview -->
-      <n-spin :show="loadingCompare">
+      <n-spin :show="loadingUpload">
         <div class="box-divider">
           <div class="box-divider-item">
             <n-h3 prefix="bar">文件1中的图像预览</n-h3>
             <div class="scroll-box">
-              <n-scrollbar x-scrollable>
-                <div
-                  :class="`preview-box ${
-                    images.length ? '' : 'preview-box-skeleton'
-                  }`"
-                >
+              <n-scrollbar class="n-scrollbar" x-scrollable>
+                <div class="preview-box">
                   <n-image
                     v-for="(img, i) in images[0]"
                     :key="i"
@@ -233,23 +227,22 @@ onUnmounted(() => {
                   />
                 </div>
               </n-scrollbar>
-              <n-image
-                :src="cropend[0]"
-                height="120px"
-                width="100%"
-                alt="image"
-              />
+              <div class="preview-crop">
+                <n-image
+                  v-show="cropend[0]"
+                  :src="cropend[0]"
+                  height="120px"
+                  width="100%"
+                  alt="image"
+                />
+              </div>
             </div>
           </div>
           <div class="box-divider-item">
             <n-h3 prefix="bar">文件2中的图像预览</n-h3>
             <div class="scroll-box">
               <n-scrollbar x-scrollable>
-                <div
-                  :class="`preview-box ${
-                    images.length ? '' : 'preview-box-skeleton'
-                  }`"
-                >
+                <div class="preview-box">
                   <n-image
                     v-for="(img, i) in images[1]"
                     :key="i"
@@ -260,79 +253,76 @@ onUnmounted(() => {
                   />
                 </div>
               </n-scrollbar>
-              <n-image
-                :src="cropend[1]"
-                height="120px"
-                width="100%"
-                alt="image"
-              />
-            </div>
-          </div>
-        </div>
-        <div class="box-divider">
-          <div class="box-divider-item">
-            <n-space justify="space-between">
-              <n-h3 prefix="bar">3. 选取对比区域</n-h3>
-              <n-button type="primary" :ghost="true" @click="handleCompare">
-                开始对比
-              </n-button>
-            </n-space>
-            <vue-picture-cropper
-              :boxStyle="{
-                height: '400px',
-                width: '100%',
-                border: '1px dashed rgb(224, 224, 230)',
-                borderRadius: '3px',
-                background: 'rgb(250, 250, 252)',
-              }"
-              :img="images[current[0]][current[1]]"
-              :options="{
-                viewMode: 1,
-                dragMode: 'move',
-                autoCrop: true,
-                cropend: handleGetCrop,
-              }"
-            />
-          </div>
-          <div class="box-divider-item">
-            <n-space justify="space-between">
-              <n-h3 prefix="bar">5. 对比结果</n-h3>
-              <n-button type="primary" :ghost="true" @click="handleSaveResult">
-                保存结果
-              </n-button>
-            </n-space>
-            <div
-              :class="`preview-box preview-box-result ${
-                compared ? '' : 'preview-box-skeleton'
-              }`"
-            >
-              <n-image
-                v-show="compared"
-                :src="compared"
-                alt="image"
-                width="100%"
-              />
+              <div class="preview-crop">
+                <n-image
+                  v-show="cropend[1]"
+                  :src="cropend[1]"
+                  height="120px"
+                  width="100%"
+                  alt="image"
+                />
+              </div>
             </div>
           </div>
         </div>
       </n-spin>
+      <!-- result -->
+      <div class="box-divider">
+        <div class="box-divider-item">
+          <n-h3 prefix="bar">3. 选取对比区域</n-h3>
+          <n-button type="primary" @click="handleCompare"> 开始对比 </n-button>
+          <vue-picture-cropper
+            :boxStyle="boxStyle"
+            :img="images[current[0]][current[1]]"
+            :options="options"
+          />
+        </div>
+        <div class="box-divider-item">
+          <n-h3 prefix="bar">5. 对比结果</n-h3>
+          <n-button type="primary" @click="handleSaveResult">
+            保存结果
+          </n-button>
+          <div class="preview-box preview-box-result">
+            <n-image
+              v-show="response.result"
+              :src="response.result"
+              alt="image"
+              width="100%"
+            />
+          </div>
+        </div>
+      </div>
     </n-space>
   </div>
 </template>
 
 <style scoped>
+.n-space {
+  gap: 24px 12px !important;
+}
+.n-h3 {
+  margin-bottom: 8px;
+}
 .box-divider {
   display: flex;
   gap: 24px;
 }
 .box-divider-item {
   width: calc(50% - 12px);
-  margin-top: 32px;
 }
 .preview-box {
   display: flex;
   gap: 12px;
+  min-height: 200px;
   border-radius: 3px;
+  border: 1px dashed rgb(224, 224, 230);
+  border-radius: 3px;
+}
+.preview-crop {
+  border: 1px dashed rgb(224, 224, 230);
+  border-radius: 3px;
+  min-width: 150px;
+  min-height: 200px;
 }
 .preview-box-skeleton {
   background: rgb(250, 250, 252);
@@ -345,15 +335,5 @@ onUnmounted(() => {
 }
 .preview-box-result {
   min-height: 400px;
-}
-.n-image {
-  border: 1px dashed rgb(224, 224, 230);
-  border-radius: 3px;
-  background: rgb(250, 250, 252);
-  min-width: 150px;
-  min-height: 200px;
-}
-.n-button {
-  height: 28px;
 }
 </style>

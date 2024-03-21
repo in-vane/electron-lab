@@ -31,3 +31,10 @@ export const handleDownload = (value, fileType) => {
   // 释放临时的 URL
   URL.revokeObjectURL(url);
 };
+
+export const scrollInneHeight = () => {
+  window.scrollTo({
+    top: window.innerHeight,
+    behavior: 'smooth',
+  });
+};

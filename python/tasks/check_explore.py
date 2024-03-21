@@ -1,4 +1,5 @@
 import os
+import sys
 import base64
 from io import BytesIO
 
@@ -16,11 +17,6 @@ CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
 IMAGE_PATH = os.path.join(CURRENT_PATH, "images")
 
 
-def img2base64(img):
-    _, image_buffer = cv2.imencode('.jpg', img)
-    image_base64 = base64.b64encode(image_buffer).decode('utf-8')
-    return image_base64
-
 # 判断页面是否是矢量图
 def is_vector_page(page):
     # 获取页面中的矢量元素数量
@@ -30,22 +26,33 @@ def is_vector_page(page):
     return vector_count > 1000
 
 
-async def pdf2img_single(ws, pdf_path):
-    print(pdf_path)
-    doc = fitz.open(pdf_path)
-    
-    doc_len = len(doc)
+def img2base64(img):
+    _, image_buffer = cv2.imencode('.jpg', img)
+    image_base64 = base64.b64encode(image_buffer).decode('utf-8')
+    return image_base64
 
-    for page_number in range(doc_len):
+
+async def pdf2img_single(ws, pdf_path, index, limit=10):
+    doc = fitz.open(pdf_path)
+    doc_len = len(doc)
+    total = min(doc_len, limit)
+
+    for page_number in range(total):
         page = doc.load_page(page_number)
         if is_vector_page(page):
-            img = page.get_pixmap()
+            img = page.get_pixmap(matrix=fitz.Matrix(DPI / 72, DPI / 72))
             img_pil = Image.frombytes("RGB", [img.width, img.height], img.samples)
-            grayscale_img = img_pil.convert('L')
+            grayscale_img = img_pil.convert('1')
             buffered = BytesIO()
             grayscale_img.save(buffered, format="PNG")
             img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
-            await ws.write_message({"img_base64": f"{BASE64_PNG}{img_base64}"})
+            await ws.write_message({
+                "type": "sendFileClip",
+                "index": index,
+                "total": total,
+                "current": page_number + 1,
+                "img_base64": f"{BASE64_PNG}{img_base64}",
+            })
 
     print('===== done =====')
     doc.close()
@@ -165,9 +172,9 @@ def resize(base64_1, base64_2):
     return image_A, image_B_aligned
 
 
-def compare_explore(file_1, file_2):
-    # Load images
-    before, after = resize(file_1, file_2)
+def compare_explore(img_1, img_2):
+    # img_[number]: base64
+    before, after = resize(img_1, img_2)
 
     # Convert images to grayscale
     before_gray = cv2.cvtColor(before, cv2.COLOR_BGR2GRAY)

@@ -14,13 +14,13 @@ import {
 } from 'naive-ui';
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
-import { CONST, handleDownload } from '@/utils';
+import { handleDownload } from '@/utils';
 
 const upload = ref(null);
 const fileList = ref([]);
-const response = ref('');
+const response = ref({ result: '' });
 const loading = ref(false);
-const selectedMode = ref(0);
+const mode = ref(0);
 const options = [
   { label: '常规模式', value: 0 },
   { label: '丹麦模式', value: 1 },
@@ -31,27 +31,22 @@ const handleChange = (data) => {
 };
 
 const handleUpload = () => {
+  loading.value = true;
   const formData = new FormData();
   for (const item of fileList.value) {
-    formData.append(item.name, item.file);
+    formData.append('file', item.file);
   }
-  formData.append('selectedMode', selectedMode.value);
-  loading.value = true;
+  formData.append('mode', mode.value);
+
   lyla
     .post('/ce', { body: formData })
     .then((res) => {
       console.log(res);
-      // response.value = res.json.data;
-      handleDownload(res.json.data, 'excel');
+      response.value = res.json.data;
+      // handleDownload(res.json.data, 'excel');
     })
-    .catch((error) => {})
-    .finally(() => {
-      loading.value = false;
-      window.scrollTo({
-        top: window.innerHeight,
-        behavior: 'smooth',
-      });
-    });
+    .catch((err) => {})
+    .finally(() => (loading.value = false));
 };
 </script>
 
@@ -80,7 +75,7 @@ const handleUpload = () => {
         </n-upload-dragger>
       </n-upload>
       <n-space>
-        <n-select v-model:value="selectedMode" :options="options" />
+        <n-select v-model:value="mode" :options="options" />
         <n-button type="primary" @click="handleUpload"> 开始对比 </n-button>
       </n-space>
     </n-spin>
