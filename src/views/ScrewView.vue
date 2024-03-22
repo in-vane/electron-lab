@@ -34,16 +34,20 @@ const handleUpload = () => {
   loading.value = true;
   const formData = new FormData();
   formData.append('file', fileList.value[0].file);
-  lyla
-    .post('/screw', { body: formData })
-    .then((res) => {
-      console.log(res);
-      response.value = res.json;
-    })
-    .catch((err) => {})
-    .finally(() => {
-      loading.value = false;
-    });
+  // lyla
+  //   .post('/screw', { body: formData })
+  //   .then((res) => {
+  //     console.log(res);
+  //     response.value = res.json;
+  //   })
+  //   .catch((err) => {})
+  //   .finally(() => {
+  //     loading.value = false;
+  //   });
+  setTimeout(() => {
+    response.value.result = mock;
+    loading.value = false;
+  }, 1000);
 };
 
 const columns = [
@@ -151,7 +155,7 @@ const renderRowClass = (rowData) =>
       <n-data-table
         size="small"
         :columns="columns"
-        :data="mock"
+        :data="response.result"
         :bordered="false"
         :row-class-name="renderRowClass"
       />

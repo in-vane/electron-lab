@@ -3,7 +3,6 @@ import { ref } from 'vue';
 import {
   NRadioGroup,
   NRadio,
-  NSelect,
   NInput,
   NIcon,
   NButton,
@@ -14,14 +13,17 @@ import {
   NImage,
   NSpin,
   NSpace,
+  useMessage,
 } from 'naive-ui';
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
 import result_normal from '@/assets/result_normal.png';
 
+const message = useMessage();
 const upload = ref(null);
+
 const fileList = ref([]);
-const response = ref({ result: result_normal });
+const response = ref({ result: '' });
 const loading = ref(false);
 const mode = ref(0);
 const options = [
@@ -34,21 +36,28 @@ const handleChange = (data) => {
 };
 
 const handleUpload = () => {
+  if (!fileList.value.length) {
+    message.info('请选择文件');
+    return;
+  }
   loading.value = true;
   const formData = new FormData();
   for (const item of fileList.value) {
     formData.append(item.file.name, item.file);
   }
   formData.append('mode', mode.value);
-
-  lyla
-    .post('/ce', { body: formData })
-    .then((res) => {
-      console.log(res);
-      response.value = res.json;
-    })
-    .catch((err) => {})
-    .finally(() => (loading.value = false));
+  // lyla
+  //   .post('/ce', { body: formData })
+  //   .then((res) => {
+  //     console.log(res);
+  //     response.value = res.json;
+  //   })
+  //   .catch((err) => {})
+  //   .finally(() => (loading.value = false));
+  setTimeout(() => {
+    response.value.result = result_normal;
+    loading.value = false;
+  }, 1000);
 };
 </script>
 

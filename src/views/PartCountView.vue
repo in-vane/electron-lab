@@ -30,7 +30,7 @@ const cropend = ref('');
 const rect = ref([]);
 const response = ref({
   error: false,
-  result: [[]],
+  result: [],
 });
 
 const loadingUpload = ref(false);
@@ -127,20 +127,24 @@ const handlePartCount = () => {
   }
   formData.append('pageNumberExplore', 6);
   formData.append('pageNumberTable', 7);
-  lyla
-    .post('/partCount', { body: formData })
-    .then((res) => {
-      console.log(res);
-      response.value = res.json;
-    })
-    .catch((error) => {})
-    .finally(() => {
-      loadingPartCount.value = false;
-      window.scrollTo({
-        top: window.innerHeight,
-        behavior: 'smooth',
-      });
-    });
+  // lyla
+  //   .post('/partCount', { body: formData })
+  //   .then((res) => {
+  //     console.log(res);
+  //     response.value = res.json;
+  //   })
+  //   .catch((error) => {})
+  //   .finally(() => {
+  //     loadingPartCount.value = false;
+  //     window.scrollTo({
+  //       top: window.innerHeight,
+  //       behavior: 'smooth',
+  //     });
+  //   });
+  setTimeout(() => {
+    response.value.result = mock
+    loadingPartCount.value = false;
+  }, 1000);
 };
 
 const handleKeyDownEsc = (e) => {
@@ -298,7 +302,7 @@ onUnmounted(() => {
       <n-data-table
         size="small"
         :columns="columns"
-        :data="mock"
+        :data="response.result"
         :bordered="false"
         :row-class-name="renderRowClass"
       />

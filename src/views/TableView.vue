@@ -23,8 +23,8 @@ const upload = ref(null);
 const fileList = ref([]);
 const pageNumber = ref('');
 const response = ref({
-  base64_imgs: [res_1, res_2],
-  error_pages: [4, 6],
+  base64_imgs: [],
+  error_pages: [],
 });
 
 const loading = ref(false);
@@ -38,16 +38,23 @@ const handleUpload = () => {
   const formData = new FormData();
   formData.append('file', fileList.value[0].file);
   formData.append('pageNumber', pageNumber.value);
-  lyla
-    .post('/table', { body: formData })
-    .then((res) => {
-      console.log(res);
-      response.value = res.json;
-    })
-    .catch((err) => {})
-    .finally(() => {
-      loading.value = false;
-    });
+  // lyla
+  //   .post('/table', { body: formData })
+  //   .then((res) => {
+  //     console.log(res);
+  //     response.value = res.json;
+  //   })
+  //   .catch((err) => {})
+  //   .finally(() => {
+  //     loading.value = false;
+  //   });
+  setTimeout(() => {
+    response.value = {
+      base64_imgs: [res_1, res_2],
+      error_pages: [4, 6],
+    };
+    loading.value = false;
+  }, 1000);
 };
 </script>
 

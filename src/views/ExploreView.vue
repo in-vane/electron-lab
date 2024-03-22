@@ -218,10 +218,10 @@ onUnmounted(() => {
       <n-spin :show="loadingUpload">
         <div class="box-divider">
           <div class="box-divider-item">
-            <n-h3 prefix="bar"
-              >文件1中的图像预览
-              {{ `${images[0].length} / ${progress[0]}` }}</n-h3
-            >
+            <n-h3 prefix="bar">
+              文件1中的图像预览
+              {{ `${images[0].length} / ${progress[0]}` }}
+            </n-h3>
             <div class="scroll-box">
               <n-scrollbar class="n-scrollbar" x-scrollable>
                 <div class="preview-box">
@@ -289,16 +289,18 @@ onUnmounted(() => {
           />
         </div>
         <div class="box-divider-item">
-          <n-h3 prefix="bar">5. 对比结果</n-h3>
-          <n-button @click="handleSaveResult"> 保存结果 </n-button>
-          <div class="preview-box preview-box-result">
-            <n-image
-              v-show="response.result"
-              :src="response.result"
-              alt="image"
-              width="100%"
-            />
-          </div>
+          <n-spin :show="loadingCompare">
+            <n-h3 prefix="bar">5. 对比结果</n-h3>
+            <n-button @click="handleSaveResult"> 保存结果 </n-button>
+            <div class="preview-box preview-box-result">
+              <n-image
+                v-show="response.result"
+                :src="response.result"
+                alt="image"
+                width="100%"
+              />
+            </div>
+          </n-spin>
         </div>
       </div>
     </n-space>
