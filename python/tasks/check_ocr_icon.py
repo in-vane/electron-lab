@@ -120,8 +120,7 @@ def highlight_unmatched_contours(img1, img2, large_contours1, large_contours2, s
             if matched_in_img2[j]:
                 continue  # 如果img2中的轮廓已匹配，则跳过
             similarity = cv2.matchShapes(contour1, contour2, 1, 0.0)
-            iou = calculate_iou(contour1, contour2, img_shape)  # 计算IoU
-            if similarity < best_matches[i][1] and iou > iou_threshold:
+            if similarity < best_matches[i][1]:
                 if best_matches[i][0] != -1:  # 如果之前有匹配，将旧匹配标记为未匹配
                     matched_in_img2[best_matches[i][0]] = False
                 best_matches[i] = (j, similarity)

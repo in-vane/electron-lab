@@ -259,22 +259,22 @@ def extend_line_from_farthest_point(bbox, line, contours):
 
 
 def extract_template_with_contour(image, contour):
-    # 计算最小外接矩形
-    rect = cv2.minAreaRect(contour)
-    box = cv2.boxPoints(rect)
-    box = np.int0(box)
-
-    # 裁剪图像
-    # 因为rect中的角度，可能需要旋转图像来得到正面的最小外接矩形
-    # 这里我们简化处理，不进行旋转
     x, y, w, h = cv2.boundingRect(contour)
     crop_img = image[y:y + h, x:x + w]
 
-    # Assuming 'template' is your template image
-    # plt.imshow(crop_img, cmap='gray')
-    # plt.title('Template')
-    # plt.show()
-    return crop_img
+    # 创建一个透明的四通道图像作为模板
+    template_adjusted = np.zeros((h, w, 4), dtype=np.uint8)
+
+    # 将裁剪的图像复制到模板的RGB通道
+    template_adjusted[..., :3] = crop_img
+
+    # 创建一个掩码，并将模板轮廓内的区域设置为不透明（255）
+    mask = np.zeros((h, w), dtype=np.uint8)
+    # 首先，绘制一个较粗的轮廓来扩展边缘
+    cv2.drawContours(mask, [contour - np.array([x, y])], -1, 255, -1)
+    # 将掩码应用到模板的alpha通道
+    template_adjusted[..., 3] = mask
+    return template_adjusted
 
 
 
@@ -309,6 +309,11 @@ def get_results(image, number_bboxes, image1):
     line_image = image.copy()
 
     filtered_contours = get_contour_image(image)
+    # contour_image = image.copy()
+    # cv2.drawContours(contour_image, filtered_contours, -1, (0, 255, 0), 3)
+    #
+    # # 假设 'processed_image' 是您处理后的图像变量
+    # cv2.imwrite('/home/zhanghantao/tmp/electron-lab/python/assets/result.png', contour_image)
     # 初始化字典来存储数字和最近直线的配对关系
     digit_to_part_mapping = {}
     # 遍历每个识别到的数字
@@ -388,7 +393,6 @@ def revalidate_matches(image, failed_matches, digit_to_part_mapping,threshold=1)
                                                                  right=delta_width - delta_width // 2,
                                                                  borderType=cv2.BORDER_CONSTANT,
                                                                  value=[0, 0, 0])  # 使用黑色填充边框
-
                     # 使用alpha通道作为掩码进行模板匹配
                     res = cv2.matchTemplate(first_template_gray, template_gray, cv2.TM_CCOEFF_NORMED,
                                             mask=template_alpha)
