@@ -311,8 +311,6 @@ def get_results(image, number_bboxes, image1):
     filtered_contours = get_contour_image(image)
     # contour_image = image.copy()
     # cv2.drawContours(contour_image, filtered_contours, -1, (0, 255, 0), 3)
-    #
-    # # 假设 'processed_image' 是您处理后的图像变量
     # cv2.imwrite('/home/zhanghantao/tmp/electron-lab/python/assets/result.png', contour_image)
     # 初始化字典来存储数字和最近直线的配对关系
     digit_to_part_mapping = {}

@@ -82,26 +82,6 @@ def compare_contours(img1, img2):
 #             similarity = cv2.matchShapes(contour1, contour2, 1, 0.0)
 
 
-
-
-def calculate_iou(contour1, contour2, img_shape):
-    # 创建全零掩码
-    mask1 = np.zeros(img_shape, dtype=np.uint8)
-    mask2 = np.zeros(img_shape, dtype=np.uint8)
-
-    # 绘制两个轮廓到各自的掩码上
-    cv2.drawContours(mask1, [contour1], -1, color=255, thickness=-1)
-    cv2.drawContours(mask2, [contour2], -1, color=255, thickness=-1)
-
-    # 计算交集和并集
-    intersection = np.logical_and(mask1, mask2).sum()
-    union = np.logical_or(mask1, mask2).sum()
-
-    # 计算IoU
-    if union == 0:
-        return 0
-    else:
-        return intersection / union
     
 def highlight_unmatched_contours(img1, img2, large_contours1, large_contours2, similarity_threshold=5,iou_threshold=0.1):
     # 假设所有轮廓最开始都是未匹配的
