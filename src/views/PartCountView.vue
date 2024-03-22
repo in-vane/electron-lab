@@ -102,7 +102,7 @@ const handlePreviewClick = (selectedImg) => {
 
 const handleGetCrop = () => {
   const base64 = cropper.getDataURL();
-  const data = cropper.getData();
+  const data = cropper.getData(true);
   rect.value = [data.x, data.y, data.width, data.height];
   cropend.value = base64;
 };
@@ -121,30 +121,26 @@ const handlePartCount = () => {
   const formData = new FormData();
   formData.append('filename', file.name);
   // formData.append('rect', rect.value);
-  const a = [20, 60, 550, 680];
+  // const a = [20, 60, 550, 680];
   for (let i = 0; i < 4; i++) {
-    formData.append('rect', a[i]);
+    formData.append('rect', rect.value[i]);
   }
   formData.append('pageNumberExplore', 6);
   formData.append('pageNumberTable', 7);
-  // lyla
-  //   .post('/partCount', { body: formData })
-  //   .then((res) => {
-  //     console.log(res);
-  //     response.value = res.json;
-  //   })
-  //   .catch((error) => {})
-  //   .finally(() => {
-  //     loadingPartCount.value = false;
-  //     window.scrollTo({
-  //       top: window.innerHeight,
-  //       behavior: 'smooth',
-  //     });
-  //   });
-  setTimeout(() => {
-    response.value.result = mock
-    loadingPartCount.value = false;
-  }, 1000);
+  lyla
+    .post('/partCount', { body: formData })
+    .then((res) => {
+      console.log(res);
+      response.value = res.json;
+    })
+    .catch((err) => {})
+    .finally(() => {
+      loadingPartCount.value = false;
+    });
+  // setTimeout(() => {
+  //   response.value.result = mock
+  //   loadingPartCount.value = false;
+  // }, 1000);
 };
 
 const handleKeyDownEsc = (e) => {

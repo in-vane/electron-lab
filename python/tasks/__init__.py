@@ -6,4 +6,5 @@ from .check_page_number import check_page_number
 from .check_table import compare_table
 from .check_screw import check_screw
 from .check_language import check_language
-from .check_camera import check_camera
+from .check_ocr_char import check_ocr_char
+from .check_ocr_icon import check_ocr_icon

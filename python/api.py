@@ -15,6 +15,7 @@ BASE64_JPG = 'data:image/jpeg;base64,'
 
 class Application(tornado.web.Application):
     def __init__(self):
+        test = 1
         handlers = [
             (r'/', MainHandler),
             (r'/ce', CEHandler),
@@ -25,7 +26,8 @@ class Application(tornado.web.Application):
             (r'/table', TableHandler),
             (r'/screw', ScrewHandler),
             (r'/language', LanguageHandler),
-            (r'/camera', CameraHandler),
+            (r'/ocr_char', OcrHandler),
+            (r'/ocr_icon', OcrHandler),
             (r"/api", ApiHandler),
         ]
         settings = {
@@ -157,17 +159,35 @@ class SizeHandler(MainHandler):
         }
         self.write(custom_data)
 
-class CameraHandler(MainHandler):
+class OcrHandler(MainHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.MODE_CHAR = 0
+        self.MODE_ICON = 1
+
     def post(self):
-        img_base64 = self.get_argument('img_base64')
-        files = self.get_files()
-        file = files[0]
-        body = file["body"]
-        error, img_base64_pic, img_base64_doc = tasks.check_camera(img_base64, body)
-        custom_data = {
-            "error": error,
-            "result": [img_base64_pic, img_base64_doc],
-        }
+        mode = int(self.get_argument('mode'))
+        custom_data = {}
+        if mode == self.MODE_CHAR:
+            print("== MODE_CHAR ==")
+            img_base64 = self.get_argument('img_base64')
+            files = self.get_files()
+            file = files[0]
+            body = file["body"]
+            error, img_base64_pic, img_base64_doc = tasks.check_ocr_char(img_base64, body)
+            custom_data = {
+                "error": error,
+                "result": [img_base64_pic, img_base64_doc],
+            }
+        if mode == self.MODE_ICON:
+            print("== MODE_ICON ==")
+            files = self.get_files()
+            file_1, file_2 = files[0], files[1]
+            body_1, body_2 = file_1["body"], file_2["body"]
+            img1, img2 = tasks.check_ocr_icon(body_1, body_2)
+            custom_data = {
+                "result": [img1, img2],
+            }
         self.write(custom_data)
 
 

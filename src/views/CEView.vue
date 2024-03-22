@@ -24,12 +24,14 @@ const upload = ref(null);
 
 const fileList = ref([]);
 const response = ref({ result: '' });
-const loading = ref(false);
+
 const mode = ref(0);
 const options = [
   { label: '常规模式', value: 0 },
   { label: '丹麦模式', value: 1 },
 ];
+
+const loading = ref(false);
 
 const handleChange = (data) => {
   fileList.value = data.fileList;

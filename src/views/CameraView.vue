@@ -1,6 +1,8 @@
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue';
+import { ref } from 'vue';
 import {
+  NRadioGroup,
+  NRadio,
   NIcon,
   NButton,
   NUpload,
@@ -10,20 +12,33 @@ import {
   NImage,
   NSpin,
   NSpace,
+  useMessage,
 } from 'naive-ui';
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
-import { img_base64 } from '@/utils/const';
-import camera_result from '@/assets/camera_result.jpeg'
+import { mock_ocr_char } from '@/utils/mock_ocr_char';
+import { mock_ocr_icon } from '@/utils/mock_ocr_icon';
+import camera_result from '@/assets/camera_result.jpeg';
 
+const message = useMessage();
 const upload = ref(null);
+
 const fileList = ref([]);
-const cropImg = ref(img_base64);
+const cropImg = ref('');
 const mediaTrack = ref(null);
 const response = ref({
   error: true,
-  result: [camera_result],
+  result: '',
 });
+
+const MODE_CHAR = 0;
+const MODE_ICON = 1;
+const mode = ref(MODE_CHAR);
+const options = [
+  { label: '文字模式', value: MODE_CHAR },
+  { label: '图标模式', value: MODE_ICON },
+];
+
 const loading = ref(false);
 
 const LOGI_CAMERA_LABLE = 'USB Camera VID:1133 PID:2085 (046d:0825)';
@@ -41,29 +56,40 @@ const handleChange = (data) => {
 };
 
 const handleUpload = () => {
-  if (fileList.value.length < 2) {
+  if (!fileList.value.length) {
+    message.info('请选择文件');
+    return;
   }
-  const formData = new FormData();
-  formData.append('file', fileList.value[0].file);
-  formData.append('img_base64', cropImg.value.split(',')[1]);
   loading.value = true;
+  let url = '';
+  const formData = new FormData();
+  formData.append('mode', mode.value);
+  if (mode.value == MODE_CHAR) {
+    url = '/ocr_char';
+    formData.append('file', fileList.value[0].file);
+    formData.append('img_base64', cropImg.value.split(',')[1]);
+  }
+  if (mode.value == MODE_ICON) {
+    url = '/ocr_icon';
+    formData.append('img_1', fileList.value[0].file);
+    formData.append('img_2', fileList.value[1].file);
+  }
   lyla
-    .post('/camera', { body: formData })
+    .post(url, { body: formData })
     .then((res) => {
       response.value = res.json;
     })
     .catch((err) => {})
     .finally(() => {
       loading.value = false;
-      window.scrollTo({
-        top: window.innerHeight,
-        behavior: 'smooth',
-      });
     });
+  // setTimeout(() => {
+  //   response.value.result = camera_result;
+  //   loading.value = false;
+  // }, 1000);
 };
 
 const handleOpenCamera = () => {
-  loading.value = true;
   navigator.mediaDevices.enumerateDevices().then((devices) => {
     const i = devices.findIndex((_) => _.label == YLR_CAMERA_LABLE);
     navigator.mediaDevices
@@ -81,12 +107,7 @@ const handleOpenCamera = () => {
           video.play();
         };
       })
-      .catch((err) => {
-        console.log(err);
-      })
-      .finally(() => {
-        loading.value = false;
-      });
+      .catch((err) => {});
   });
 };
 
@@ -94,10 +115,6 @@ const handleCrop = () => {
   ctx.drawImage(video.value, 0, 0, canvas.width, canvas.height);
   const imgURL = canvas.toDataURL('image/jpeg', 1);
   cropImg.value = imgURL;
-};
-
-const handleClearCrop = () => {
-  cropImg.value = '';
 };
 
 const handleCloseCamera = () => {
@@ -114,7 +131,6 @@ const handleCloseCamera = () => {
     <n-upload
       multiple
       ref="upload"
-      accept=".pdf"
       :max="2"
       :default-upload="false"
       v-model:file-list="fileList"
@@ -134,10 +150,20 @@ const handleCloseCamera = () => {
         </n-p>
       </n-upload-dragger>
     </n-upload>
+    <n-radio-group v-model:value="mode" name="radiogroup">
+      <n-space>
+        <n-radio
+          v-for="option in options"
+          :key="option.value"
+          :value="option.value"
+        >
+          {{ option.label }}
+        </n-radio>
+      </n-space>
+    </n-radio-group>
     <n-space>
       <n-button @click="handleOpenCamera"> 开启摄像头 </n-button>
       <n-button @click="handleCrop"> 截图 </n-button>
-      <n-button @click="handleClearCrop"> 清除截图 </n-button>
       <n-button @click="handleCloseCamera"> 关闭摄像头 </n-button>
       <n-button type="primary" @click="handleUpload"> 开始检测 </n-button>
     </n-space>
@@ -157,20 +183,18 @@ const handleCloseCamera = () => {
         :height="VIDEO_HEIGHT"
         :src="cropImg"
       />
-      <n-image
-        v-for="(img, i) in response.result"
-        :key="i"
-        :src="img"
-        width="200px"
-      />
+      <n-image v-show="response.result" :src="response.result" width="200px" />
     </n-space>
   </n-space>
 </template>
 
 <style scoped>
-.n-image,
 .n-video {
   border-radius: 3px;
+}
+.n-image {
+  border-radius: 3px;
+  border: 1px solid rgb(224, 224, 230);
 }
 .n-video {
   background: #000;

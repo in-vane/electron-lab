@@ -318,7 +318,7 @@ class ocrImg2ImgDifference(ocrImg2imgDifference):
         return before_img1, after_img2
 
 
-def check_camera(img_base64, pdf):
+def check_ocr_char(img_base64, pdf):
     # 解码 base64 字符串为图像数据
     image_data_1 = base64.b64decode(img_base64)
     nparr_1 = np.frombuffer(image_data_1, np.uint8)
