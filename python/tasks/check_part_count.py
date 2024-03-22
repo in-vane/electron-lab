@@ -203,11 +203,6 @@ def get_image(pdf_path, page_number, crop_rect):
                 rect = page.search_for(number_text)
                 if rect:  # 确保搜索结果非空
                     number_bboxes[number_text] = rect[0]
-
-    # # 根据记录的边界框绘制边界框
-    # for bbox in number_bboxes.values():
-    #     x0, y0, x1, y1 = [int(coord * ZOOM) for coord in bbox]
-    #     cv2.rectangle(image, (x0, y0), (x1, y1), (0, 255, 0), 2)  # 绘制绿色边界框
     return image, number_bboxes
 
 
@@ -282,24 +277,27 @@ def extract_template_with_contour(image, contour):
     return crop_img
 
 
-def find_and_count_matches(image, template, threshold=0.5):
-    # Assuming 'template' is your template image
-    # 进行模板匹配
-    result = cv2.matchTemplate(image, template, cv2.TM_CCOEFF_NORMED)
-    # 通过阈值找到匹配的区域
-    loc = np.where(result >= threshold)
 
-    # 创建与结果大小相同的mask，初始化为全0
-    match_mask = np.zeros_like(result, dtype=np.uint8)
-    match_mask[loc] = 255  # Vectorized operation to apply mask
-    # # 确保不会超出界限
-    # for pt in zip(*loc[::-1]):  # loc[::-1] 使得坐标顺序为(x, y)
-    #     if pt[1] < match_mask.shape[0] and pt[0] < match_mask.shape[1]:
-    #         match_mask[pt[1], pt[0]] = 255
+def find_and_count_matches(image, filtered_contours, original_contour, threshold=0.9):
+    # 确保图像是灰度图
+    if len(image.shape) > 2:
+        image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        image_gray = image
 
-    contours, _ = cv2.findContours(match_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    return len(contours)
+    # 用于存储形状相似度小于阈值的轮廓数量和匹配到的轮廓列表
+    valid_matches = 0
+    matched_contours_list = []
 
+    for contour in filtered_contours:
+        # 计算当前轮廓与原始轮廓的形状相似度
+        similarity = cv2.matchShapes(contour, original_contour, 1, 0.0)
+        if similarity < threshold:
+            valid_matches += 1
+            matched_contours_list.append(contour)
+
+    # 返回匹配数量和匹配到的轮廓列表
+    return valid_matches, matched_contours_list
 
 def get_results(image, number_bboxes, image1):
     gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -309,18 +307,8 @@ def get_results(image, number_bboxes, image1):
     # 使用霍夫变换检测直线
     lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=50, minLineLength=100, maxLineGap=5)
     line_image = image.copy()
-    # 绘制直线
-    for line in lines:
-        x1, y1, x2, y2 = line[0]  # 提取直线的端点坐标
-        cv2.line(line_image, (x1, y1), (x2, y2), (0, 0, 255), 2)  # 在图像上绘制直线，这里颜色为红色，线宽为2
-    # cv2.imwrite('/home/zhanghantao/tmp/part_count/material/result1.png', line_image)
 
     filtered_contours = get_contour_image(image)
-    contour_image = image.copy()
-    cv2.drawContours(contour_image, filtered_contours, -1, (0, 255, 0), 3)
-
-    # 假设 'processed_image' 是您处理后的图像变量
-    # cv2.imwrite('/home/zhanghantao/tmp/part_count/material/result2.png', contour_image)
     # 初始化字典来存储数字和最近直线的配对关系
     digit_to_part_mapping = {}
     # 遍历每个识别到的数字
@@ -347,9 +335,12 @@ def get_results(image, number_bboxes, image1):
                 digit_to_part_mapping[text] = {'part_contour': None, 'bbox': bbox, 'similar_parts_count': 0}
     for digit, info in digit_to_part_mapping.items():
         if 'part_contour' in info and info['part_contour'] is not None:
-            template = extract_template_with_contour(image, info['part_contour'])
-            count = find_and_count_matches(image, template, threshold=0.9)
+            # template = extract_template_with_contour(image, info['part_contour'])
+            # count = find_and_count_matches(image, template, threshold=0.9)
+            count, matched_contours = find_and_count_matches(image, filtered_contours, info['part_contour'], threshold=0.02)
             digit_to_part_mapping[digit]['similar_parts_count'] = count
+            # 在字典中存储匹配到的轮廓
+            digit_to_part_mapping[digit]['matched_contours'] = matched_contours
     return digit_to_part_mapping
 
 
@@ -362,7 +353,65 @@ def is_increasing(sequence):
 def contains_number(s):
     return any(char.isdigit() for char in s)
 
+def revalidate_matches(image, failed_matches, digit_to_part_mapping,threshold=1):
+    revalidated_results = []
+    for key, matched, found, expected in failed_matches:
+        if not matched:
+            if key in digit_to_part_mapping and 'matched_contours' in digit_to_part_mapping[key]:
+                matched_contours = digit_to_part_mapping[key]['matched_contours']
+                # 初始化匹配成功的计数器
+                successful_matches_count = 0
+                padding = 5  # 增加的边框尺寸
+                for contour in matched_contours:
+                    x, y, w, h = cv2.boundingRect(contour)
+                    # 提取匹配区域的图像
+                    first_template = image[y:y + h, x:x + w]
+                    first_template_gray = cv2.cvtColor(first_template, cv2.COLOR_BGR2GRAY)
+                    # 首先，确认first_template_gray是否需要增加边框
 
+                    # 提取模板及其alpha通道作为掩码
+                    template = extract_template_with_contour(image, digit_to_part_mapping[key]['part_contour'])
+                    template_rgb = template[..., :3]
+                    template_alpha = template[..., 3]
+                    template_gray = cv2.cvtColor(template_rgb, cv2.COLOR_BGR2GRAY)
+                    if first_template_gray.shape[0] < template_gray.shape[0] or first_template_gray.shape[1] < \
+                            template_gray.shape[1]:
+                        # 计算需要增加的高度和宽度
+                        delta_height = max(template_gray.shape[0] - first_template_gray.shape[0] + padding, 0)
+                        delta_width = max(template_gray.shape[1] - first_template_gray.shape[1] + padding, 0)
+
+                        # 应用边框以增加first_template_gray的尺寸
+                        first_template_gray = cv2.copyMakeBorder(first_template_gray,
+                                                                 top=delta_height // 2,
+                                                                 bottom=delta_height - delta_height // 2,
+                                                                 left=delta_width // 2,
+                                                                 right=delta_width - delta_width // 2,
+                                                                 borderType=cv2.BORDER_CONSTANT,
+                                                                 value=[0, 0, 0])  # 使用黑色填充边框
+
+                    # 使用alpha通道作为掩码进行模板匹配
+                    res = cv2.matchTemplate(first_template_gray, template_gray, cv2.TM_CCOEFF_NORMED,
+                                            mask=template_alpha)
+                    _, max_val, _, _ = cv2.minMaxLoc(res)
+
+                    if max_val > threshold:
+                        successful_matches_count += 1
+
+                # 检查匹配成功的次数是否与expected值一致
+                if successful_matches_count == expected[0]:
+                    match_success = True
+                    revalidated_results.append((key, match_success, found, expected))
+                else:
+                    match_success = False
+                    revalidated_results.append((key, match_success, found, expected))
+            else:
+                # 如果没有匹配的轮廓，保留原来的匹配失败信息
+                revalidated_results.append((key, False, found, expected))
+        else:
+            # 如果原本匹配成功，直接添加到结果中
+            revalidated_results.append((key, matched, found, expected))
+
+    return revalidated_results
 def form_extraction_and_compare(pdf_path, page_number, digit_to_part_mapping):
     results = []  # 用于存储比对结果
     with pdfplumber.open(pdf_path) as pdf:
@@ -426,18 +475,12 @@ def check_part_count(filename, rect=[20, 60, 550, 680], page_number_explore=6, p
     image1 = image.copy()
     digit_to_part_mapping = get_results(image, bbox, image1)
     status_message, match_results = form_extraction_and_compare(pdf_path, page_number_table - 1, digit_to_part_mapping)
-    # # 获取所有的键和对应的'similar_parts_count'值
-    # similar_parts_counts = [(key, info['similar_parts_count']) for key, info in digit_to_part_mapping.items()]
-    #
-    # # 打印所有的键和对应的'similar_parts_count'值
-    # for key, similar_parts_count in similar_parts_counts:
-    #     print("Key:", key, "Similar parts count:", similar_parts_count)
-    # cv2.imwrite('/home/zhanghantao/tmp/part_count/material/result3.png', image1)
+    revalidated_results = revalidate_matches(image, match_results, digit_to_part_mapping, threshold=0.9)
     # 检查状态信息，并按需处理匹配结果
     results = []
     if status_message == 'Success':
         # 遍历匹配结果
-        for key, matched, found, expected in match_results:
+        for key, matched, found, expected in revalidated_results:
             results.append({
                 "no": key,
                 "state": matched,
