@@ -12,6 +12,6 @@ import { NResult, NButton } from 'naive-ui';
 
 <style scoped>
 .n-result {
-  margin-top: 80px;
+  margin: 80px;
 }
 </style>

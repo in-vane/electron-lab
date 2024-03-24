@@ -10,6 +10,7 @@ import {
   NText,
   NP,
   NImage,
+  NImageGroup,
   NSpin,
   NSpace,
   useMessage,
@@ -17,7 +18,7 @@ import {
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
 import { mock_ocr_char } from '@/utils/mock_ocr_char';
-import { mock_ocr_icon } from '@/utils/mock_ocr_icon';
+import { mock_ocr_icon_1, mock_ocr_icon_2 } from '@/utils/mock_ocr_icon';
 import camera_result from '@/assets/camera_result.jpeg';
 
 const message = useMessage();
@@ -28,7 +29,7 @@ const cropImg = ref('');
 const mediaTrack = ref(null);
 const response = ref({
   error: true,
-  result: '',
+  result: [],
 });
 
 const MODE_CHAR = 0;
@@ -74,19 +75,25 @@ const handleUpload = () => {
     formData.append('img_1', fileList.value[0].file);
     formData.append('img_2', fileList.value[1].file);
   }
-  lyla
-    .post(url, { body: formData })
-    .then((res) => {
-      response.value = res.json;
-    })
-    .catch((err) => {})
-    .finally(() => {
-      loading.value = false;
-    });
-  // setTimeout(() => {
-  //   response.value.result = camera_result;
-  //   loading.value = false;
-  // }, 1000);
+  // lyla
+  //   .post(url, { body: formData })
+  //   .then((res) => {
+  //     response.value = res.json;
+  //   })
+  //   .catch((err) => {})
+  //   .finally(() => {
+  //     loading.value = false;
+  //   });
+  setTimeout(() => {
+    if (mode.value == MODE_CHAR) {
+      response.value.result = [camera_result];
+    }
+    if (mode.value == MODE_ICON) {
+      response.value.result = [mock_ocr_icon_1, mock_ocr_icon_2];
+    }
+
+    loading.value = false;
+  }, 1000);
 };
 
 const handleOpenCamera = () => {
@@ -179,11 +186,21 @@ const handleCloseCamera = () => {
       </n-spin>
       <n-image
         v-show="cropImg"
-        :width="VIDEO_WIDTH"
-        :height="VIDEO_HEIGHT"
         :src="cropImg"
+        alt="image"
+        width="200px"
       />
-      <n-image v-show="response.result" :src="response.result" width="200px" />
+      <n-image-group>
+        <n-space>
+          <n-image
+            v-for="(img, i) in response.result"
+            :key="i"
+            :src="img"
+            alt="image"
+            width="200px"
+          />
+        </n-space>
+      </n-image-group>
     </n-space>
   </n-space>
 </template>

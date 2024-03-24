@@ -120,27 +120,26 @@ const handlePartCount = () => {
   const file = fileList.value[0].file;
   const formData = new FormData();
   formData.append('filename', file.name);
-  // formData.append('rect', rect.value);
-  // const a = [20, 60, 550, 680];
+  formData.append('rect', rect.value);
   for (let i = 0; i < 4; i++) {
     formData.append('rect', rect.value[i]);
   }
-  formData.append('pageNumberExplore', 6);
-  formData.append('pageNumberTable', 7);
-  lyla
-    .post('/partCount', { body: formData })
-    .then((res) => {
-      console.log(res);
-      response.value = res.json;
-    })
-    .catch((err) => {})
-    .finally(() => {
-      loadingPartCount.value = false;
-    });
-  // setTimeout(() => {
-  //   response.value.result = mock
-  //   loadingPartCount.value = false;
-  // }, 1000);
+  // formData.append('pageNumberExplore', 6);
+  // formData.append('pageNumberTable', 7);
+  // lyla
+  //   .post('/partCount', { body: formData })
+  //   .then((res) => {
+  //     console.log(res);
+  //     response.value = res.json;
+  //   })
+  //   .catch((err) => {})
+  //   .finally(() => {
+  //     loadingPartCount.value = false;
+  //   });
+  setTimeout(() => {
+    response.value.result = mock
+    loadingPartCount.value = false;
+  }, 1000);
 };
 
 const handleKeyDownEsc = (e) => {
