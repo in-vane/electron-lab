@@ -54,7 +54,10 @@ const openWebsocket = () => {
   websocket.onmessage = (e) => {
     const data = JSON.parse(e.data);
     if (data.type == 'sendFileClip') {
-      images.value.push(data.img_base64);
+      images.value.push({
+        src: data.img_base64,
+        page: data.current,
+      });
       if (data.current == data.total) {
         ws.value.close();
       }
@@ -98,8 +101,8 @@ const handleChange = (data) => {
   fileList.value = data.fileList;
 };
 
-const handlePreviewClick = (selectedImg) => {
-  current.value = selectedImg;
+const handlePreviewClick = (i) => {
+  current.value = i;
 };
 
 const handleGetCrop = () => {
@@ -125,7 +128,7 @@ const handlePartCount = () => {
   for (let i = 0; i < 4; i++) {
     formData.append('rect', rect.value[i]);
   }
-  formData.append('pageNumberExplore', current.value);
+  formData.append('pageNumberExplore', images.value[current.value]?.page);
   formData.append('pageNumberTable', pageNumberTable.value);
   lyla
     .post('/partCount', { body: formData })
@@ -279,7 +282,7 @@ onUnmounted(() => {
             <n-image
               v-for="(img, i) in images"
               :key="i"
-              :src="img"
+              :src="img.src"
               alt="image"
               height="200px"
               @click="(e) => handlePreviewClick(i)"
@@ -298,7 +301,7 @@ onUnmounted(() => {
       </div>
       <vue-picture-cropper
         :boxStyle="boxStyle"
-        :img="images[current]"
+        :img="images[current]?.src"
         :options="options"
       />
     </n-spin>
