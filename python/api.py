@@ -85,10 +85,17 @@ class PartCountHandler(MainHandler):
     def post(self):
         filename = self.get_argument('filename')
         rect = self.get_arguments('rect')
+        # 使用列表切片获取除第一项之外的所有元素，并使用列表推导式将它们转换为整数
+        # rect_int= [int(x) for x in rect[1:]]
         rect_int = [int(x) for x in rect]
+        xmin = rect_int[0] / 300 * 72
+        ymin = rect_int[1] / 300 * 72
+        xmax = (rect_int[0] + rect_int[2]) / 300 * 72
+        ymax = (rect_int[1] + rect_int[3]) / 300 * 72
+        pdf_rect = [xmin,ymin,xmax,ymax]
         page_number_explore = int(self.get_argument('pageNumberExplore'))
         page_number_table = int(self.get_argument('pageNumberTable'))
-        error, result = tasks.check_part_count(filename, rect_int, page_number_explore, page_number_table)
+        error, result = tasks.check_part_count(filename, pdf_rect, page_number_explore, page_number_table)
         custom_data = {
             "error": error,
             "result": result

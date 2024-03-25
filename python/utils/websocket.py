@@ -47,7 +47,13 @@ class PDFAssembler:
             self.received_data += base64.b64decode(b64[1])
         
         # output_path = self.file_name
-        output_path = './python/assets/pdf/' + self.file_name
+        output_path = './python/assets/pdf/'
+        # 如果目录不存在，则创建它
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+
+        # 指定文件路径
+        output_path = os.path.join(output_path, self.file_name)
         with open(output_path, "wb") as output_file:
             output_file.write(self.received_data)
         

@@ -20,6 +20,7 @@ def unify_bbox_format(bbox):
     x_min = min([point[0] for point in bbox])
     y_min = min([point[1] for point in bbox])
     x_max = max([point[0] for point in bbox])
+
     y_max = max([point[1] for point in bbox])
     return [x_min, y_min, x_max, y_max]
 
@@ -184,6 +185,7 @@ def get_image(pdf_path, page_number, crop_rect):
         pix = pix.to_rgb()  # Drop the alpha channel
     # Now, we can be sure that `pix.samples` contains 3 components per pixel (RGB)
     image = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)
+    cv2.imwrite("D:/PycharmProjects/part_count/material/result1.png",image)
     # 获取页面上的所有文字块及其边界框
     blocks = page.get_text("blocks")
 
@@ -305,13 +307,19 @@ def get_results(image, number_bboxes, image1):
     blurred_image = cv2.GaussianBlur(gray_image, (5, 5), 0)
     edges = cv2.Canny(blurred_image, 50, 150)
     # 使用霍夫变换检测直线
-    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=50, minLineLength=100, maxLineGap=5)
+    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=50, minLineLength=100, maxLineGap=25)
     line_image = image.copy()
+    # 遍历检测到的每条线段
+    for line in lines:
+        x1, y1, x2, y2 = line[0]
+        # 在line_image上绘制线段
+        cv2.line(line_image, (x1, y1), (x2, y2), (0, 255, 0), 3)
+    cv2.imwrite('D:/PycharmProjects/part_count/material/result3.png', line_image)
 
     filtered_contours = get_contour_image(image)
-    # contour_image = image.copy()
-    # cv2.drawContours(contour_image, filtered_contours, -1, (0, 255, 0), 3)
-    # cv2.imwrite('/home/zhanghantao/tmp/electron-lab/python/assets/result.png', contour_image)
+    contour_image = image.copy()
+    cv2.drawContours(contour_image, filtered_contours, -1, (0, 255, 0), 3)
+    cv2.imwrite('D:/PycharmProjects/part_count/material/result2.png', contour_image)
     # 初始化字典来存储数字和最近直线的配对关系
     digit_to_part_mapping = {}
     # 遍历每个识别到的数字
@@ -336,6 +344,7 @@ def get_results(image, number_bboxes, image1):
             else:
                 # 如果未找到零件框，则更新字典中的相应信息
                 digit_to_part_mapping[text] = {'part_contour': None, 'bbox': bbox, 'similar_parts_count': 0}
+    cv2.imwrite('D:/PycharmProjects/part_count/material/result4.png',image1)
     for digit, info in digit_to_part_mapping.items():
         if 'part_contour' in info and info['part_contour'] is not None:
             # template = extract_template_with_contour(image, info['part_contour'])
@@ -391,6 +400,8 @@ def revalidate_matches(image, failed_matches, digit_to_part_mapping,threshold=1)
                                                                  right=delta_width - delta_width // 2,
                                                                  borderType=cv2.BORDER_CONSTANT,
                                                                  value=[0, 0, 0])  # 使用黑色填充边框
+                    first_template_gray = first_template_gray.astype('float32')
+                    template_gray = template_gray.astype('float32')
                     # 使用alpha通道作为掩码进行模板匹配
                     res = cv2.matchTemplate(first_template_gray, template_gray, cv2.TM_CCOEFF_NORMED,
                                             mask=template_alpha)
@@ -402,10 +413,10 @@ def revalidate_matches(image, failed_matches, digit_to_part_mapping,threshold=1)
                 # 检查匹配成功的次数是否与expected值一致
                 if successful_matches_count == expected[0]:
                     match_success = True
-                    revalidated_results.append((key, match_success, found, expected))
+                    revalidated_results.append((key, match_success, None, None))
                 else:
                     match_success = False
-                    revalidated_results.append((key, match_success, found, expected))
+                    revalidated_results.append((key, match_success, successful_matches_count, expected))
             else:
                 # 如果没有匹配的轮廓，保留原来的匹配失败信息
                 revalidated_results.append((key, False, found, expected))
@@ -441,7 +452,8 @@ def form_extraction_and_compare(pdf_path, page_number, digit_to_part_mapping):
                         df = df.iloc[1:]
 
                     try:
-                        df.iloc[:, 0] = pd.to_numeric(df.iloc[:, 0], errors='coerce').astype(int)
+                        # df.iloc[:, 0] = pd.to_numeric(df.iloc[:, 0], errors='coerce').astype(int)
+                        df[df.columns[0]] = pd.to_numeric(df.iloc[:, 0], errors='coerce').astype(int)
                         df = df.dropna(subset=[df.columns[0]])
                     except ValueError:
                         continue  # 无法转换第一列为整数，跳过此子表格
