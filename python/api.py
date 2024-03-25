@@ -228,11 +228,8 @@ class ApiHandler(tornado.websocket.WebSocketHandler):
             if assembler.is_complete():
                 assembled_pdf_path = assembler.assemble_pdf()
                 if assembled_pdf_path:
-                    print(f"PDF assembled: {assembled_pdf_path}")
-                    # 可以在这里执行任何其他操作，例如将文件发送给客户端
-                    await tasks.pdf2img_single(self, assembled_pdf_path, index)
-                    # 然后清理已完成的 assembler
-                    del self.assemblers[file_name]
+                    await tasks.pdf2img_single(self, assembled_pdf_path, index) # 可以在这里执行任何其他操作，例如将文件发送给客户端
+                    del self.assemblers[file_name] # 然后清理已完成的 assembler
 
         custom_data = {"data": f"return {type}"}
         self.write_message(custom_data)

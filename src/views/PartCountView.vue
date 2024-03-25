@@ -4,6 +4,7 @@ import {
   NScrollbar,
   NIcon,
   NButton,
+  NInput,
   NUpload,
   NUploadDragger,
   NText,
@@ -26,6 +27,7 @@ const ws = ref(null);
 const fileList = ref([]);
 const images = ref([]);
 const current = ref(0);
+const pageNumberTable = ref('');
 const cropend = ref('');
 const rect = ref([]);
 const response = ref({
@@ -120,26 +122,25 @@ const handlePartCount = () => {
   const file = fileList.value[0].file;
   const formData = new FormData();
   formData.append('filename', file.name);
-  formData.append('rect', rect.value);
   for (let i = 0; i < 4; i++) {
     formData.append('rect', rect.value[i]);
   }
-  // formData.append('pageNumberExplore', 6);
-  // formData.append('pageNumberTable', 7);
-  // lyla
-  //   .post('/partCount', { body: formData })
-  //   .then((res) => {
-  //     console.log(res);
-  //     response.value = res.json;
-  //   })
-  //   .catch((err) => {})
-  //   .finally(() => {
-  //     loadingPartCount.value = false;
-  //   });
-  setTimeout(() => {
-    response.value.result = mock
-    loadingPartCount.value = false;
-  }, 1000);
+  formData.append('pageNumberExplore', current.value);
+  formData.append('pageNumberTable', pageNumberTable.value);
+  lyla
+    .post('/partCount', { body: formData })
+    .then((res) => {
+      console.log(res);
+      response.value = res.json;
+    })
+    .catch((err) => {})
+    .finally(() => {
+      loadingPartCount.value = false;
+    });
+  // setTimeout(() => {
+  //   response.value.result = mock
+  //   loadingPartCount.value = false;
+  // }, 1000);
 };
 
 const handleKeyDownEsc = (e) => {
@@ -153,7 +154,7 @@ const boxStyle = {
   width: '100%',
   border: '1px dashed rgb(224, 224, 230)',
   borderRadius: '3px',
-  marginTop: '8px'
+  marginTop: '8px',
 };
 
 const options = {
@@ -262,7 +263,16 @@ onUnmounted(() => {
     <!-- preview -->
     <n-spin :show="loadingPartCount">
       <n-h3 prefix="bar">2. 文件图像预览</n-h3>
-      <n-button @click="handlePartCount">开始任务</n-button>
+      <n-space>
+        <n-input
+          v-model:value="pageNumberTable"
+          type="text"
+          placeholder="请输入明细表的页码数"
+        />
+        <n-button type="primary" :ghost="true" @click="handlePartCount">
+          开始任务
+        </n-button>
+      </n-space>
       <div class="scroll-box">
         <n-scrollbar class="n-scrollbar" x-scrollable>
           <div class="preview-box">
