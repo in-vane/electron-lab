@@ -13,6 +13,7 @@ import {
   NImageGroup,
   NSpin,
   NSpace,
+  NPopselect,
   useMessage,
 } from 'naive-ui';
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
@@ -23,9 +24,9 @@ import camera_result from '@/assets/camera_result.jpeg';
 
 const message = useMessage();
 const upload = ref(null);
-
 const fileList = ref([]);
 const cropImg = ref('');
+const cameras = ref([]);
 const mediaTrack = ref(null);
 const response = ref({
   error: true,
@@ -42,8 +43,6 @@ const options = [
 
 const loading = ref(false);
 
-const LOGI_CAMERA_LABLE = 'USB Camera VID:1133 PID:2085 (046d:0825)';
-const YLR_CAMERA_LABLE = 'YLR 60FPS Camera (1d6c:0103)';
 const VIDEO_WIDTH = 1080 / 3;
 const VIDEO_HEIGHT = 1920 / 3;
 const video = ref(null);
@@ -97,39 +96,56 @@ const handleUpload = () => {
 };
 
 const handleOpenCamera = () => {
-  navigator.mediaDevices.enumerateDevices().then((devices) => {
-    const i = devices.findIndex((_) => _.label == YLR_CAMERA_LABLE);
-    navigator.mediaDevices
-      .getUserMedia({
-        video: {
-          groupId: devices[i].groupId,
-          width: VIDEO_WIDTH,
-          height: VIDEO_HEIGHT,
-        },
-      })
-      .then((stream) => {
-        video.value.srcObject = stream;
-        mediaTrack.value = stream;
-        video.onloadedmetadata = (e) => {
-          video.play();
-        };
-      })
-      .catch((err) => {});
+  navigator.mediaDevices
+    .getUserMedia({ video: { width: VIDEO_WIDTH, height: VIDEO_HEIGHT } })
+    .then((stream) => {
+      video.value.srcObject = stream;
+      mediaTrack.value = stream;
+      video.onloadedmetadata = (e) => {
+        video.play();
+      };
+      navigator.mediaDevices.enumerateDevices().then((devices) => {
+        const map = new Map();
+        devices.forEach((_) => {
+          map.set(_.groupId, _.label);
+        });
+        const options = [];
+        for (let [key, value] of map) {
+          options.push({ label: value, value: key });
+        }
+        cameras.value = options;
+      });
+    })
+    .catch((err) => {});
+};
+
+const handleCloseCamera = () => {
+  video.srcObject = null;
+  mediaTrack.value.getVideoTracks().forEach((track) => {
+    track.stop();
   });
+};
+
+const handleSwitchCamera = (groupId) => {
+  handleCloseCamera();
+  navigator.mediaDevices
+    .getUserMedia({
+      video: { groupId, width: VIDEO_WIDTH, height: VIDEO_HEIGHT },
+    })
+    .then((stream) => {
+      video.value.srcObject = stream;
+      mediaTrack.value = stream;
+      video.onloadedmetadata = (e) => {
+        video.play();
+      };
+    })
+    .catch((err) => {});
 };
 
 const handleCrop = () => {
   ctx.drawImage(video.value, 0, 0, canvas.width, canvas.height);
   const imgURL = canvas.toDataURL('image/jpeg', 1);
   cropImg.value = imgURL;
-};
-
-const handleCloseCamera = () => {
-  video.srcObject = null;
-  console.log(mediaTrack);
-  mediaTrack.value.getVideoTracks().forEach((track) => {
-    track.stop();
-  });
 };
 </script>
 
@@ -170,6 +186,13 @@ const handleCloseCamera = () => {
     </n-radio-group>
     <n-space>
       <n-button @click="handleOpenCamera"> 开启摄像头 </n-button>
+      <n-popselect
+        :options="cameras"
+        :on-update:value="handleSwitchCamera"
+        trigger="click"
+      >
+        <n-button :disabled="cameras.length == 0"> 切换摄像头 </n-button>
+      </n-popselect>
       <n-button @click="handleCrop"> 截图 </n-button>
       <n-button @click="handleCloseCamera"> 关闭摄像头 </n-button>
       <n-button type="primary" @click="handleUpload"> 开始检测 </n-button>
@@ -184,12 +207,7 @@ const handleCloseCamera = () => {
           :height="VIDEO_HEIGHT"
         ></video>
       </n-spin>
-      <n-image
-        v-show="cropImg"
-        :src="cropImg"
-        alt="image"
-        width="200px"
-      />
+      <n-image v-show="cropImg" :src="cropImg" alt="image" width="200px" />
       <n-image-group>
         <n-space>
           <n-image
