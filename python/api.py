@@ -7,7 +7,7 @@ import tornado.options
 import tornado.ioloop
 
 import tasks
-from utils import PDFAssembler
+from websocket import FileAssembler
 
 CONTENT_TYPE_PDF = "application/pdf"
 BASE64_PNG = 'data:image/png;base64,'
@@ -15,7 +15,6 @@ BASE64_JPG = 'data:image/jpeg;base64,'
 
 class Application(tornado.web.Application):
     def __init__(self):
-        test = 1
         handlers = [
             (r'/', MainHandler),
             (r'/ce', CEHandler),
@@ -174,24 +173,19 @@ class OcrHandler(MainHandler):
 
     def post(self):
         mode = int(self.get_argument('mode'))
+        page = int(self.get_argument('page'))
+        crop = int(self.get_argument('crop'))
         custom_data = {}
         if mode == self.MODE_CHAR:
             print("== MODE_CHAR ==")
-            img_base64 = self.get_argument('img_base64')
-            files = self.get_files()
-            file = files[0]
-            body = file["body"]
-            error, img_base64_pic, img_base64_doc = tasks.check_ocr_char(img_base64, body)
+            error, img_base64_pic, img_base64_doc = tasks.check_ocr_char(crop, page)
             custom_data = {
                 "error": error,
                 "result": [img_base64_pic, img_base64_doc],
             }
         if mode == self.MODE_ICON:
             print("== MODE_ICON ==")
-            files = self.get_files()
-            file_1, file_2 = files[0], files[1]
-            body_1, body_2 = file_1["body"], file_2["body"]
-            img1, img2 = tasks.check_ocr_icon(body_1, body_2)
+            img1, img2 = tasks.check_ocr_icon(crop, page)
             custom_data = {
                 "result": [img1, img2],
             }
@@ -201,7 +195,7 @@ class OcrHandler(MainHandler):
 class ApiHandler(tornado.websocket.WebSocketHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.assemblers = {}
+        self.files = {}
 
     def check_origin(self, origin):
         return True
@@ -215,30 +209,25 @@ class ApiHandler(tornado.websocket.WebSocketHandler):
 
     async def on_message(self, message):
         print("===== get_message =====")
-
         data = tornado.escape.json_decode(message)
-        type = data.get('type')
+        file_name = data.get('fileName')
+        file_data = data.get('file')
+        total = int(data.get('total'))
+        current = int(data.get('current'))
+        options = data.get('options')
 
-        if type == 'sendFileClip':
-            index = data.get('index')
-            file_name = data.get('fileName')
-            current_slice = data.get('currentSlice')
-            total_slice = data.get('totalSlice')
-            file_data = data.get('file')
+        if file_name not in self.files:
+            self.files[file_name] = FileAssembler(file_name, total)
+        _file = self.files[file_name]
+        _file.add_slice(current, file_data)
+        
+        if _file.is_complete():
+            file_path = _file.assemble()
+            if file_path:
+                await tasks.pdf2img_single(self, file_path, options)
+                del self.files[file_name]
 
-            if file_name not in self.assemblers:
-                self.assemblers[file_name] = PDFAssembler(file_name, total_slice)
-            
-            assembler = self.assemblers[file_name]
-            assembler.add_slice(current_slice, file_data)
-            
-            if assembler.is_complete():
-                assembled_pdf_path = assembler.assemble_pdf()
-                if assembled_pdf_path:
-                    await tasks.pdf2img_single(self, assembled_pdf_path, index) # 可以在这里执行任何其他操作，例如将文件发送给客户端
-                    del self.assemblers[file_name] # 然后清理已完成的 assembler
-
-        custom_data = {"data": f"return {type}"}
+        custom_data = {"data": f"Done {type} {file_name}"}
         self.write_message(custom_data)
 
     def on_close(self):

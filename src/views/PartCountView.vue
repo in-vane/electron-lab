@@ -14,11 +14,13 @@ import {
   NSpace,
   NH3,
   NDataTable,
+  NBadge,
   useMessage,
 } from 'naive-ui';
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
 import VuePictureCropper, { cropper } from 'vue-picture-cropper';
+import { CONST } from '@/utils';
 
 const message = useMessage();
 const upload = ref(null);
@@ -53,14 +55,10 @@ const openWebsocket = () => {
   };
   websocket.onmessage = (e) => {
     const data = JSON.parse(e.data);
-    if (data.type == 'sendFileClip') {
-      images.value.push({
-        src: data.img_base64,
-        page: data.current,
-      });
-      if (data.current == data.total) {
-        ws.value.close();
-      }
+    const { img_base64, current } = data;
+    if (img_base64) {
+      images.value.push({ src: img_base64, page: current });
+      data.current == data.total && ws.value.close();
     }
   };
   websocket.onerror = (e) => {
@@ -82,27 +80,17 @@ const sendMessage = () => {
     const fileClip = file.slice(start, end);
     const reader = new FileReader();
     reader.onload = (e) => {
-      const blob = reader.result;
-      ws.value.send(
-        JSON.stringify({
-          type: 'sendFileClip',
-          fileName: file.name,
-          currentSlice: i + 1,
-          totalSlice: shardCount,
-          file: blob,
-        })
-      );
+      const message = {
+        fileName: file.name,
+        file: reader.result,
+        total: shardCount,
+        current: i + 1,
+        options: { mode: CONST.MODE_PDF2IMG.MODE_NORMAL, limit: 10 },
+      };
+      ws.value.send(JSON.stringify(message));
     };
     reader.readAsDataURL(fileClip);
   }
-};
-
-const handleChange = (data) => {
-  fileList.value = data.fileList;
-};
-
-const handlePreviewClick = (i) => {
-  current.value = i;
 };
 
 const handleGetCrop = () => {
@@ -236,13 +224,12 @@ onUnmounted(() => {
       <n-h3 prefix="bar">1. 上传PDF</n-h3>
       <n-spin :show="loadingUpload">
         <n-upload
-          multiple
           ref="upload"
           accept=".pdf"
-          :max="2"
+          :max="1"
           :default-upload="false"
           v-model:file-list="fileList"
-          @change="handleChange"
+          @change="(data) => (fileList = data.fileList)"
         >
           <n-upload-dragger>
             <div style="margin-bottom: 12px">
@@ -279,14 +266,21 @@ onUnmounted(() => {
       <div class="scroll-box">
         <n-scrollbar class="n-scrollbar" x-scrollable>
           <div class="preview-box">
-            <n-image
-              v-for="(img, i) in images"
-              :key="i"
-              :src="img.src"
-              alt="image"
-              height="200px"
-              @click="(e) => handlePreviewClick(i)"
-            />
+            <div class="preview-item" v-for="(img, i) in images" :key="i">
+              <n-badge
+                :value="i + 1"
+                :color="current == i ? '#18a058' : 'gray'"
+                :offset="[-10, 10]"
+              >
+                <n-image
+                  :src="img.src"
+                  alt="image"
+                  height="200px"
+                  preview-disabled
+                  @click="() => (current = i)"
+                />
+              </n-badge>
+            </div>
           </div>
         </n-scrollbar>
         <div class="preview-crop">
@@ -305,6 +299,7 @@ onUnmounted(() => {
         :options="options"
       />
     </n-spin>
+    <!-- result -->
     <div>
       <n-h3 prefix="bar">3. 零件计数检测结果</n-h3>
       <n-data-table

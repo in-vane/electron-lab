@@ -5,10 +5,6 @@ import cv2
 import numpy as np
 
 
-CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
-IMAGE_PATH = os.path.join(CURRENT_PATH, "images")
-
-
 def img2base64(img):
     _, image_buffer = cv2.imencode('.jpg', img)
     image_base64 = base64.b64encode(image_buffer).decode('utf-8')
@@ -22,7 +18,7 @@ def base642cv2img(base64_data):
     return image
 
 
-class PDFAssembler:
+class FileAssembler:
     def __init__(self, file_name, total_slices):
         self.file_name = file_name
         self.total_slices = total_slices
@@ -35,7 +31,7 @@ class PDFAssembler:
     def is_complete(self):
         return len(self.received_slices) == self.total_slices
     
-    def assemble_pdf(self):
+    def assemble(self):
         if not self.is_complete():
             return None
         

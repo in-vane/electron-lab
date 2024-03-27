@@ -1,37 +1,32 @@
 <script setup>
-import { ref } from 'vue';
+import { onUnmounted, ref } from 'vue';
 import {
-  NRadioGroup,
-  NRadio,
-  NIcon,
   NButton,
   NUpload,
-  NUploadDragger,
-  NText,
-  NP,
   NImage,
   NImageGroup,
   NSpin,
   NSpace,
   NPopselect,
+  NH3,
+  NScrollbar,
+  NBadge,
+  NSelect,
+  NDivider,
   useMessage,
 } from 'naive-ui';
-import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
-import { mock_ocr_char } from '@/utils/mock_ocr_char';
-import { mock_ocr_icon_1, mock_ocr_icon_2 } from '@/utils/mock_ocr_icon';
-import camera_result from '@/assets/camera_result.jpeg';
+import { CONST } from '@/utils'
 
 const message = useMessage();
-const upload = ref(null);
+const ws = ref(null);
+
 const fileList = ref([]);
-const cropImg = ref('');
+const images = ref([]);
+const current = ref(0);
 const cameras = ref([]);
 const mediaTrack = ref(null);
-const response = ref({
-  error: true,
-  result: [],
-});
+const response = ref({ error: true, result: [] });
 
 const MODE_CHAR = 0;
 const MODE_ICON = 1;
@@ -40,59 +35,108 @@ const options = [
   { label: '文字模式', value: MODE_CHAR },
   { label: '图标模式', value: MODE_ICON },
 ];
+const cropBase64 = ref('');
 
-const loading = ref(false);
+const loadingWebsocket = ref(false);
+const loadingUpload = ref(false);
 
 const VIDEO_WIDTH = 1080 / 3;
-const VIDEO_HEIGHT = 1920 / 3;
+// const VIDEO_HEIGHT = 1920 / 3;
+const VIDEO_HEIGHT = VIDEO_WIDTH * 1.414;
 const video = ref(null);
 const canvas = document.createElement('canvas');
 canvas.width = VIDEO_WIDTH;
 canvas.height = VIDEO_HEIGHT;
 const ctx = canvas.getContext('2d');
 
-const handleChange = (data) => {
-  fileList.value = data.fileList;
+const openWebsocket = () => {
+  const api_url = 'ws://localhost:4242/api';
+  const websocket = new WebSocket(api_url);
+
+  websocket.onopen = (e) => {
+    console.log('connected: ', e);
+    loadingUpload.value = true;
+    sendMessage();
+  };
+  websocket.onclose = (e) => {
+    console.log('disconnected: ', e);
+    loadingUpload.value = false;
+  };
+  websocket.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    const { img_base64, total, current } = data;
+    if (img_base64) {
+      images.value.push(img_base64);
+      current == total && ws.value.close();
+    }
+  };
+  websocket.onerror = (e) => {
+    console.log('error: ', e);
+  };
+
+  ws.value = websocket;
 };
 
-const handleUpload = () => {
+const sendMessage = () => {
+  const file = fileList.value[0].file;
+  const size = file.size;
+  const shardSize = 1024 * 1024; // 以1MB为一个分片
+  const shardCount = Math.ceil(size / shardSize); // 总片数
+
+  for (let i = 0; i < shardCount; i++) {
+    const start = i * shardSize;
+    const end = Math.min(size, start + shardSize);
+    const fileClip = file.slice(start, end);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const message = {
+        fileName: file.name,
+        file: reader.result,
+        total: shardCount,
+        current: i + 1,
+        options: { mode: CONST.MODE_PDF2IMG.MODE_NORMAL },
+      };
+      ws.value.send(JSON.stringify(message));
+    };
+    reader.readAsDataURL(fileClip);
+  }
+};
+
+const handleUploadPDF = () => {
   if (!fileList.value.length) {
     message.info('请选择文件');
     return;
   }
-  loading.value = true;
-  let url = '';
+  openWebsocket();
+};
+
+const handleCrop = () => {
+  ctx.drawImage(video.value, 0, 0, canvas.width, canvas.height);
+  const imgURL = canvas.toDataURL('image/jpeg', 1);
+  cropBase64.value = imgURL;
+};
+
+const handleCompare = () => {
+  if (!fileList.value.length) {
+    message.info('请选择文件');
+    return;
+  }
+  handleCrop();
+  loadingWebsocket.value = true;
+  let url = mode.value == MODE_CHAR ? '/ocr_char' : '/ocr_icon';
   const formData = new FormData();
   formData.append('mode', mode.value);
-  if (mode.value == MODE_CHAR) {
-    url = '/ocr_char';
-    formData.append('file', fileList.value[0].file);
-    formData.append('img_base64', cropImg.value.split(',')[1]);
-  }
-  if (mode.value == MODE_ICON) {
-    url = '/ocr_icon';
-    formData.append('img_1', fileList.value[0].file);
-    formData.append('img_2', fileList.value[1].file);
-  }
-  // lyla
-  //   .post(url, { body: formData })
-  //   .then((res) => {
-  //     response.value = res.json;
-  //   })
-  //   .catch((err) => {})
-  //   .finally(() => {
-  //     loading.value = false;
-  //   });
-  setTimeout(() => {
-    if (mode.value == MODE_CHAR) {
-      response.value.result = [camera_result];
-    }
-    if (mode.value == MODE_ICON) {
-      response.value.result = [mock_ocr_icon_1, mock_ocr_icon_2];
-    }
-
-    loading.value = false;
-  }, 1000);
+  formData.append('page', current.value + 1);
+  formData.append('crop', cropBase64.value);
+  lyla
+    .post(url, { body: formData })
+    .then((res) => {
+      response.value = res.json;
+    })
+    .catch((err) => {})
+    .finally(() => {
+      loadingWebsocket.value = false;
+    });
 };
 
 const handleOpenCamera = () => {
@@ -119,13 +163,6 @@ const handleOpenCamera = () => {
     .catch((err) => {});
 };
 
-const handleCloseCamera = () => {
-  video.srcObject = null;
-  mediaTrack.value.getVideoTracks().forEach((track) => {
-    track.stop();
-  });
-};
-
 const handleSwitchCamera = (groupId) => {
   handleCloseCamera();
   navigator.mediaDevices
@@ -142,63 +179,68 @@ const handleSwitchCamera = (groupId) => {
     .catch((err) => {});
 };
 
-const handleCrop = () => {
-  ctx.drawImage(video.value, 0, 0, canvas.width, canvas.height);
-  const imgURL = canvas.toDataURL('image/jpeg', 1);
-  cropImg.value = imgURL;
-};
+onUnmounted(() => {
+  video.srcObject = null;
+  if (mediaTrack.value) {
+    mediaTrack.value.getVideoTracks().forEach((track) => {
+      track.stop();
+    });
+  }
+});
 </script>
 
 <template>
-  <n-space vertical>
-    <n-upload
-      multiple
-      ref="upload"
-      :max="2"
-      :default-upload="false"
-      v-model:file-list="fileList"
-      @change="handleChange"
-    >
-      <n-upload-dragger>
-        <div style="margin-bottom: 12px">
-          <n-icon size="48" :depth="3">
-            <archive-icon />
-          </n-icon>
-        </div>
-        <n-text style="font-size: 16px">
-          点击或者拖动文件到该区域来上传
-        </n-text>
-        <n-p depth="3" style="margin: 8px 0 0 0">
-          检查两份pdf中爆炸图与安装图不一致的部分
-        </n-p>
-      </n-upload-dragger>
-    </n-upload>
-    <n-radio-group v-model:value="mode" name="radiogroup">
-      <n-space>
-        <n-radio
-          v-for="option in options"
-          :key="option.value"
-          :value="option.value"
-        >
-          {{ option.label }}
-        </n-radio>
-      </n-space>
-    </n-radio-group>
-    <n-space>
-      <n-button @click="handleOpenCamera"> 开启摄像头 </n-button>
-      <n-popselect
-        :options="cameras"
-        :on-update:value="handleSwitchCamera"
-        trigger="click"
+  <div>
+    <!-- upload -->
+    <n-spin :show="loadingUpload" content-class="upload-spin-content">
+      <n-h3 prefix="bar">1. 上传PDF</n-h3>
+      <n-upload
+        :max="1"
+        :default-upload="false"
+        v-model:file-list="fileList"
+        @change="(data) => (fileList = data.fileList)"
       >
-        <n-button :disabled="cameras.length == 0"> 切换摄像头 </n-button>
-      </n-popselect>
-      <n-button @click="handleCrop"> 截图 </n-button>
-      <n-button @click="handleCloseCamera"> 关闭摄像头 </n-button>
-      <n-button type="primary" @click="handleUpload"> 开始检测 </n-button>
-    </n-space>
-    <n-space>
-      <n-spin :show="loading">
+        <n-button>选择文件</n-button>
+      </n-upload>
+      <n-button class="upload-btn" @click="handleUploadPDF">
+        开始转换
+      </n-button>
+      <n-scrollbar x-scrollable>
+        <div class="preview-box">
+          <div class="preview-item" v-for="(img, i) in images" :key="i">
+            <n-badge :value="i + 1" :color="current == i ? '#18a058' : 'gray'">
+              <n-image
+                :src="img"
+                alt="image"
+                height="200px"
+                preview-disabled
+                @click="() => (current = i)"
+              />
+            </n-badge>
+          </div>
+        </div>
+      </n-scrollbar>
+    </n-spin>
+    <n-divider />
+    <!-- 操作栏 -->
+    <n-space vertical>
+      <n-h3 prefix="bar">2. 拍摄对比</n-h3>
+      <n-space>
+        <n-button @click="handleOpenCamera"> 开启摄像头 </n-button>
+        <n-popselect
+          :options="cameras"
+          :on-update:value="handleSwitchCamera"
+          trigger="click"
+        >
+          <n-button :disabled="cameras.length == 0"> 切换摄像头 </n-button>
+        </n-popselect>
+        <!-- <n-button @click="handleCrop"> 截图 </n-button> -->
+        <!-- <n-button @click="handleCloseCamera"> 关闭摄像头 </n-button> -->
+        <n-select v-model:value="mode" :options="options" />
+        <n-button type="primary" @click="handleCompare"> 开始检测 </n-button>
+      </n-space>
+      <!-- video区域 -->
+      <n-space>
         <video
           ref="video"
           class="n-video"
@@ -206,32 +248,56 @@ const handleCrop = () => {
           :width="VIDEO_WIDTH"
           :height="VIDEO_HEIGHT"
         ></video>
-      </n-spin>
-      <n-image v-show="cropImg" :src="cropImg" alt="image" width="200px" />
-      <n-image-group>
-        <n-space>
-          <n-image
-            v-for="(img, i) in response.result"
-            :key="i"
-            :src="img"
-            alt="image"
-            width="200px"
-          />
-        </n-space>
-      </n-image-group>
+        <n-image
+          v-show="images.length"
+          :src="images[current]"
+          alt="image"
+          :height="VIDEO_HEIGHT"
+        />
+        <n-image-group>
+          <n-space>
+            <n-image
+              v-for="(img, i) in response.result"
+              :key="i"
+              :src="img"
+              alt="image"
+              width="200px"
+            />
+          </n-space>
+        </n-image-group>
+      </n-space>
     </n-space>
-  </n-space>
+  </div>
 </template>
 
 <style scoped>
+.upload-spin-content {
+  position: relative;
+}
+.upload-btn {
+  position: absolute;
+  top: 49px;
+  left: 91px;
+}
+.preview-box {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  min-height: 200px;
+  border-radius: 3px;
+  border: 1px dashed rgb(224, 224, 230);
+  border-radius: 3px;
+}
 .n-video {
   border-radius: 3px;
+  background: #000;
 }
 .n-image {
   border-radius: 3px;
   border: 1px solid rgb(224, 224, 230);
+  cursor: pointer;
 }
-.n-video {
-  background: #000;
+.n-select {
+  width: 160px;
 }
 </style>

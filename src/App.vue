@@ -11,6 +11,8 @@ import {
   NIcon,
   NImage,
   NMessageProvider,
+  NDropdown,
+  NAvatar,
 } from 'naive-ui';
 import {
   HomeOutline as IHome,
@@ -23,9 +25,10 @@ import {
   LanguageOutline as ILang,
   CogOutline as ICog,
   CameraOutline as ICamera,
+  AccessibilityOutline as UserIcon,
 } from '@vicons/ionicons5';
 
-// import agsun from '@/assets/agsun.jpeg';
+import agsun from '@/assets/agsun.jpeg';
 
 const l = (path, label) => () =>
   h(RouterLink, { to: { path } }, { default: () => label });
@@ -57,8 +60,21 @@ watchEffect(() => {
       flexDirection: 'column',
     }"
   >
-    <n-layout-header>
+    <n-layout-header bordered>
       <!-- <n-image :src="agsun" /> -->
+      <!-- <n-dropdown
+        trigger="hover"
+        @select="avatarSelect"
+        :options="avatarOptions"
+      >
+        <div class="avatar">
+          <n-avatar round>
+            <n-icon>
+              <user-icon />
+            </n-icon>
+          </n-avatar>
+        </div>
+      </n-dropdown> -->
     </n-layout-header>
     <n-layout has-sider>
       <n-layout-sider
@@ -86,7 +102,7 @@ watchEffect(() => {
         </n-message-provider>
       </n-layout-content>
     </n-layout>
-    <n-layout-footer bordered>Made by NBU</n-layout-footer>
+    <!-- <n-layout-footer bordered>Made by NBU</n-layout-footer> -->
   </n-layout>
 </template>
 

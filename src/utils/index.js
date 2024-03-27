@@ -4,6 +4,10 @@ export const CONST = {
     pdf: ['pdf', 'pdf'],
     excel: ['vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'xlsx'],
   },
+  MODE_PDF2IMG: {
+    MODE_NORMAL: 0,
+    MODE_VECTOR: 1,
+  },
 };
 
 export const handleDownload = (value, fileType) => {

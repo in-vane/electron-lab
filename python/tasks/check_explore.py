@@ -9,12 +9,14 @@ import numpy as np
 from PIL import Image
 from skimage.metrics import structural_similarity
 
+from .utils import pdf2img
+
 
 # 常量
 DPI = 300
 BASE64_PNG = 'data:image/png;base64,'
-CURRENT_PATH = os.path.dirname(os.path.abspath(__file__))
-IMAGE_PATH = os.path.join(CURRENT_PATH, "images")
+MODE_NORMAL = 0
+MODE_VECTOR = 1
 
 
 # 判断页面是否是矢量图
@@ -32,72 +34,32 @@ def img2base64(img):
     return image_base64
 
 
-async def pdf2img_single(ws, pdf_path, index, limit=10):
+async def pdf2img_single(ws, pdf_path, options):
     doc = fitz.open(pdf_path)
-    doc_len = len(doc)
-    total = min(doc_len, limit)
+    total = len(doc)
+    if 'limit' in options:
+        total = min(total, options['limit'])
 
     for page_number in range(total):
         page = doc.load_page(page_number)
-        if is_vector_page(page):
-            img = page.get_pixmap(matrix=fitz.Matrix(DPI / 72, DPI / 72))
-            img_pil = Image.frombytes("RGB", [img.width, img.height], img.samples)
-            grayscale_img = img_pil.convert('1')
-            buffered = BytesIO()
-            grayscale_img.save(buffered, format="PNG")
-            img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
-            await ws.write_message({
-                "type": "sendFileClip",
-                "index": index,
-                "total": total,
-                "current": page_number + 1,
-                "img_base64": f"{BASE64_PNG}{img_base64}",
-            })
+        img_base64 = ''
+
+        if(options['mode'] == MODE_NORMAL):
+            img_base64 = pdf2img(page, dpi=72)
+        if(options['mode'] == MODE_VECTOR):
+            if is_vector_page(page):
+                img_base64 = pdf2img(page, dpi=300)
+
+        img_base64 = "" if not img_base64 else f"{BASE64_PNG}{img_base64}"
+        await ws.write_message({
+            "total": total,
+            "current": page_number + 1,
+            "img_base64": img_base64,
+            "options": options
+        })
 
     print('===== done =====')
     doc.close()
-
-
-# pdf转图片
-def pdf2img(file):
-    # 打开PDF文件
-    pdf_document = fitz.open(stream=BytesIO(file))
-
-    # 存储超过阈值的页面图片路径
-    vector_page_images = []
-
-    # 遍历PDF的每一页
-    for page_number in range(len(pdf_document)):
-        page = pdf_document.load_page(page_number)
-        # 判断页面是否是矢量图
-        if is_vector_page(page):
-            # 保存矢量图页面为图片
-            pix = page.get_pixmap(matrix=fitz.Matrix(DPI / 72, DPI / 72))
-            image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-            vector_page_images.append(image)
-
-    # 合成所有矢量图页面为一张图片
-    total_width = sum(image.width for image in vector_page_images)
-    max_height = max(image.height for image in vector_page_images)
-    new_image = Image.new('RGB', (total_width, max_height))
-
-    x_offset = 0
-    for image in vector_page_images:
-        new_image.paste(image, (x_offset, 0))
-        x_offset += image.width
-
-    image_data = np.array(new_image)
-
-    image_data_s = cv2.resize(image_data, (int(total_width / 4), int(max_height / 4)))
-
-    # 关闭PDF文件
-    pdf_document.close()
-
-    # 图片转base64
-    image_base64 = img2base64(image_data)
-    image_base64_s = img2base64(image_data_s)
-
-    return image_base64, image_base64_s
 
 
 def resize(base64_1, base64_2):

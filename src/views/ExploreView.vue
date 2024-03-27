@@ -17,6 +17,7 @@ import {
 import { ArchiveOutline as ArchiveIcon } from '@vicons/ionicons5';
 import { lyla } from '@/request';
 import VuePictureCropper, { cropper } from 'vue-picture-cropper';
+import { CONST } from '@/utils';
 
 const message = useMessage();
 const upload = ref(null);
@@ -49,17 +50,12 @@ const openWebsocket = () => {
   };
   websocket.onmessage = (e) => {
     const data = JSON.parse(e.data);
-    if (data.type == 'sendFileClip') {
-      images.value[data.index].push(data.img_base64);
-      if (progress.value[data.index] != data.total) {
-        progress.value[data.index] = data.total;
-      }
-      if (data.current == data.total) {
-        isComplete.value[data.index] = true;
-      }
-      if (isComplete.value.every((_) => _)) {
-        ws.value.close();
-      }
+    const { total, current, img_base64, options } = data;
+    if (img_base64) {
+      images.value[options.index].push(img_base64);
+      progress.value[options.index] = total; // 总数，用以显示进度
+      isComplete.value[options.index] = current == total; // 是否完成
+      isComplete.value.every((_) => _) && ws.value.close(); // 两个都完成后关闭
     }
   };
   websocket.onerror = (e) => {
@@ -71,7 +67,6 @@ const openWebsocket = () => {
 
 const sendMessage = (index) => {
   const file = fileList.value[index].file;
-  const fileName = file.name;
   const size = file.size;
   const shardSize = 1024 * 1024; // 以1MB为一个分片
   const shardCount = Math.ceil(size / shardSize); // 总片数
@@ -82,17 +77,14 @@ const sendMessage = (index) => {
     const fileClip = file.slice(start, end);
     const reader = new FileReader();
     reader.onload = (e) => {
-      const blob = reader.result;
-      ws.value.send(
-        JSON.stringify({
-          type: 'sendFileClip',
-          index,
-          fileName,
-          currentSlice: i + 1,
-          totalSlice: shardCount,
-          file: blob,
-        })
-      );
+      const message = {
+        fileName: file.name,
+        file: reader.result,
+        total: shardCount,
+        current: i + 1,
+        options: { mode: CONST.MODE_PDF2IMG.MODE_VECTOR, index },
+      };
+      ws.value.send(JSON.stringify(message));
     };
     reader.readAsDataURL(fileClip);
   }
